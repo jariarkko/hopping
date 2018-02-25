@@ -884,16 +884,19 @@ hopping_packetisforus(char* receivedPacket,
 
 static void
 hopping_reportprogress_sent(hopping_idtype id,
-				unsigned char ttl) {
+			    unsigned char ttl,
+			    int rexmit) {
   if (progress) {
     if (lastprogressreportwassentpacket) {
       printf("\n");
     }
-    printf("ECHO #%u (TTL %u)...", id, ttl);
+    printf("%s #%u (TTL %u)...",
+	   (rexmit ? "REXMIT" : "ECHO  "),
+	   id,
+	   ttl);
     lastprogressreportwassentpacket = 1;
   }
 }
-
 
 //
 // Reporting progress: received
@@ -901,8 +904,8 @@ hopping_reportprogress_sent(hopping_idtype id,
 
 static void
 hopping_reportprogress_received(enum hopping_responseType responseType,
-				    hopping_idtype id,
-				    unsigned char ttl) {
+				hopping_idtype id,
+				unsigned char ttl) {
   
   if (progress) {
     switch (responseType) {
@@ -1030,7 +1033,7 @@ hopping_retransmitactiveprobe(int sd,
   // Report progress on screen
   //
   
-  hopping_reportprogress_sent(id,currentTtl);
+  hopping_reportprogress_sent(id,newProbe->hops,1);
 }
 
 //
@@ -1181,13 +1184,17 @@ hopping_sendprobes(int sd,
     if (probe == 0) {
       fatalf("cannot allocate a new probe entry");
     }
-    hopping_sendprobe(sd,destinationAddress,sourceAddress,expectedLen,probe);
+    hopping_sendprobe(sd,
+		      destinationAddress,
+		      sourceAddress,
+		      expectedLen,
+		      probe);
 
     //
     // Report progress on screen
     //
     
-    hopping_reportprogress_sent(id,currentTtl);
+    hopping_reportprogress_sent(id,probe->hops,0);
         
   }
 
