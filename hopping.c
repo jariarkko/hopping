@@ -108,8 +108,8 @@ static unsigned int probesSent = 0;
 static unsigned char currentTtl = 0;
 static int seenprogressreport = 0;
 static int lastprogressreportwassentpacket = 0;
-static int hopsMin = -1;
-static int hopsMax = 255;
+static int hopsMinInclusive = 0;
+static int hopsMaxInclusive = 255;
 
 
 //
@@ -395,12 +395,12 @@ hopping_registerResponse(enum hopping_responseType type,
   //
   
   if (type == hopping_responseType_echoResponse) {
-    hopsMax = hopping_min(hopsMax,probe->hops);
-    debugf("echo reply means hops is at most %u", hopsMax);
+    hopsMaxInclusive = hopping_min(hopsMaxInclusive,probe->hops);
+    debugf("echo reply means hops is at most %u", hopsMaxInclusive);
   }
   if (type == hopping_responseType_timeExceeded) {
-    hopsMin = hopping_max(hopsMin,probe->hops + 1);
-    debugf("time exceeded means hops is at least %u", hopsMin);
+    hopsMinInclusive = hopping_max(hopsMinInclusive,probe->hops + 1);
+    debugf("time exceeded means hops is at least %u", hopsMinInclusive);
   }
 
   //
@@ -1008,8 +1008,8 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
 static int
 hopping_shouldcontinue() {
   if (probesSent >= maxProbes) return(0);
-  if (hopsMin == hopsMax) return(0);
-  if (!hopping_probesnotyetsentinrange(hopsMin+1,hopsMax)) return(0);
+  if (hopsMinInclusive == hopsMaxInclusive) return(0);
+  if (!hopping_probesnotyetsentinrange(hopsMinInclusive,hopsMaxInclusive)) return(0);
   return(1);
 }
 
@@ -1171,9 +1171,10 @@ hopping_sendprobes(int sd,
     
     switch (algorithm) {
     case hopping_algorithms_random:
-      debugf("before random selection, min = %u and max = %u", hopsMin, hopsMax);
-      currentTtl = hopsMin + 1 + (rand() % (hopsMax - hopsMin));
-      debugf("selected a random ttl %u in range %u..%u", currentTtl, hopsMin+1, hopsMax);
+      debugf("before random selection, min = %u and max = %u",
+	     hopsMinInclusive, hopsMaxInclusive);
+      currentTtl = hopsMinInclusive + (rand() % (hopsMaxInclusive - hopsMinInclusive + 1));
+      debugf("selected a random ttl %u in range %u..%u", currentTtl, hopsMinInclusive, hopsMaxInclusive);
       break;
     case hopping_algorithms_sequential:
       if (probesSent > 0) currentTtl++;
@@ -1488,14 +1489,14 @@ hopping_unreachableresponses() {
 
 static void
 hopping_reportBriefConclusion() {
-  if (hopsMin == hopsMax) {
-    printf(" [%u hops away]", hopsMin);
-  } else if (hopsMin == -1 && hopsMax >= maxTtl) {
+  if (hopsMinInclusive == hopsMaxInclusive) {
+    printf(" [%u hops away]", hopsMinInclusive);
+  } else if (hopsMinInclusive == 0 && hopsMaxInclusive >= maxTtl) {
     printf(" [unknown hops away]");
   } else {
     printf(" [%u.. %u hops away]",
-	   hopsMin == -1 ? 0 : hopsMin,
-	   hopsMax);
+	   hopsMinInclusive,
+	   hopsMaxInclusive);
   }
 }
 
@@ -1513,14 +1514,14 @@ hopping_reportConclusion() {
   const char* testDestinationAddressString = hopping_addrtostring(&testDestinationAddress.sin_addr);
   
   printf("%s (%s) is ", testDestination, testDestinationAddressString);
-  if (hopsMin == hopsMax) {
-    printf("%u hops away", hopsMin);
-  } else if (hopsMin == -1 && hopsMax >= maxTtl) {
+  if (hopsMinInclusive == hopsMaxInclusive) {
+    printf("%u hops away", hopsMinInclusive);
+  } else if (hopsMinInclusive == 0 && hopsMaxInclusive >= maxTtl) {
     printf("unknown hops away");
   } else {
     printf("between %u and %u hops away",
-	   hopsMin == -1 ? 0 : hopsMin,
-	   hopsMax);
+	   hopsMinInclusive,
+	   hopsMaxInclusive);
   }
   
   if (repl == 0 && unreach > 0) {
