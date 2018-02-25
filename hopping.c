@@ -951,6 +951,19 @@ hopping_reportprogress_received_other() {
 }
 
 //
+// Reporting progress: done
+//
+
+static void
+hopping_reportprogress_end() {
+  
+  if (progress) {
+    printf("\n");
+  }
+  
+}
+
+//
 // Search for what probes in a given TTL range
 // have not been sent yet
 //
@@ -1313,6 +1326,8 @@ hopping_probingprocess(int sd,
     }
     
   }
+  
+  hopping_reportprogress_end();
   
 }
 
