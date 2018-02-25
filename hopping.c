@@ -116,7 +116,14 @@ static int hopsMax = 255;
 
 static void
 hopping_reportBriefConclusion(void);
-
+static void
+hopping_sendprobe(int sd,
+		  struct sockaddr_in* destinationAddress,
+		  struct sockaddr_in* sourceAddress,
+		  unsigned int expectedLen,
+		  struct hopping_probe* probe);
+static void
+hopping_getcurrenttime(struct timeval* result);
 
 //
 // Some helper macros ----------------------------------------------------
@@ -203,8 +210,17 @@ hopping_fillwithstring(char* buffer,
 }
 
 static unsigned long
+hopping_timeisless(struct timeval* earlier,
+		   struct timeval* later) {
+  if (earlier->tv_sec < later->tv_sec) return(1);
+  else if (earlier->tv_sec > later->tv_sec) return(0);
+  else if (earlier->tv_usec < later->tv_usec) return(1);
+  else return(0);
+}
+
+static unsigned long
 hopping_timediffinusecs(struct timeval* later,
-			    struct timeval* earlier) {
+			struct timeval* earlier) {
   if (later->tv_sec < earlier->tv_sec) {
     fatalf("expected later time to be greater, second go back %uls", earlier->tv_sec - later->tv_sec);
   }
@@ -240,14 +256,25 @@ hopping_addrtostring(struct in_addr* addr) {
 }
 
 //
+// Get current time
+//
+
+static void
+hopping_getcurrenttime(struct timeval* result) {
+  if (gettimeofday(result, 0) < 0) {
+    fatalp("cannot determine current time via gettimeofday");
+  }
+}
+
+//
 // Add a new probe entry
 //
 
-struct hopping_probe*
+static struct hopping_probe*
 hopping_newprobe(hopping_idtype id,
-		     unsigned char hops,
-		     unsigned int probeLength,
-		     struct hopping_probe* previousProbe) {
+		 unsigned char hops,
+		 unsigned int probeLength,
+		 struct hopping_probe* previousProbe) {
   
   struct hopping_probe* probe = &probes[id];
   if (probe->used) {
@@ -269,10 +296,8 @@ hopping_newprobe(hopping_idtype id,
   // (although technically it hasn't been sent yet... but in
   // few microseconds it will as soon as this function exits).
   //
-  
-  if (gettimeofday(&probe->sentTime, 0) < 0) {
-    fatalp("cannot determine current time via gettimeofday");
-  }
+
+  hopping_getcurrenttime(&probe->sentTime);
 
   //
   // Figure out if this is a retransmission of a previous probe.
@@ -357,9 +382,7 @@ hopping_registerResponse(enum hopping_responseType type,
   debugf("this is a new valid response to probe id %u", id);
   probe->responded = 1;
   probe->responseLength = packetLength;
-  if (gettimeofday(&probe->responseTime, 0) < 0) {
-    fatalp("cannot determine current time via gettimeofday");
-  }
+  hopping_getcurrenttime(&probe->responseTime);
   probe->delayUSecs = hopping_timediffinusecs(&probe->responseTime,
 						  &probe->sentTime);
   debugf("probe delay was %.3f ms", probe->delayUSecs / 1000.0);
@@ -975,23 +998,148 @@ hopping_shouldcontinue() {
 }
 
 //
+// Retransmit a given probe (by creating a new probe)
+//
+
+static void
+hopping_retransmitactiveprobe(int sd,
+			      struct sockaddr_in* destinationAddress,
+			      struct sockaddr_in* sourceAddress,
+			      struct hopping_probe* probe) {
+
+  unsigned int expectedLen = HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + icmpDataLength;
+  hopping_idtype id = probe->id;
+  struct hopping_probe* newProbe;
+  
+  debugf("retransmitting probe id %u ttl %u", probe->id, probe->hops);
+  
+  newProbe = hopping_newprobe(id,probe->hops,expectedLen,probe);
+  if (probe == 0) {
+    fatalf("cannot allocate a new probe entry");
+  }
+  
+  hopping_sendprobe(sd,
+		    destinationAddress,
+		    sourceAddress,
+		    expectedLen,
+		    newProbe);
+}
+
+//
+// Check to see if we need to retransmit any of the currently
+// active (not responded to) probes
+//
+
+static void
+hopping_retransmitactiveprobes(int sd,
+			       struct sockaddr_in* destinationAddress,
+			       struct sockaddr_in* sourceAddress) {
+
+  struct timeval now;
+  hopping_idtype otherid;
+  
+  //
+  // Get current time
+  //
+  
+  hopping_getcurrenttime(&now);
+  
+  //
+  // If there are probes whose response has not arrived and their
+  // timeouts expire, send retransmissions
+  //
+  
+  for (otherid = 0; otherid < HOPPING_MAX_PROBES; otherid++) {
+    
+    struct hopping_probe* probe = &probes[otherid];
+    if (probe->used && !probe->responded && probe->nextRetransmission == 0) {
+      
+      //
+      // This probe has not seen an answer yet, nor is there an ongoing
+      // retranmission for it yet. Check to see if it is time to send
+      // a retransmission.
+      //
+      
+      if (hopping_timeisless(&probe->initialTimeout,&now)) {
+	
+	//
+	// Yes. Timeout has passed, request a retranmission to be sent...
+	//
+	
+	hopping_retransmitactiveprobe(sd,
+				      destinationAddress,
+				      sourceAddress,
+				      probe);
+	
+      }
+      
+    }
+    
+  }
+  
+}
+
+//
+// Construct and send a packet for a newly allocated probe
+//
+
+static void
+hopping_sendprobe(int sd,
+		  struct sockaddr_in* destinationAddress,
+		  struct sockaddr_in* sourceAddress,
+		  unsigned int expectedLen,
+		  struct hopping_probe* probe) {
+  
+    unsigned int packetLength;
+    char* packet;
+    
+    //
+    // Create a packet
+    //
+    
+    hopping_constructicmp4packet(sourceAddress,
+				 destinationAddress,
+				 probe->id,
+				 probe->hops,
+				 icmpDataLength,
+				 &packet,
+				 &packetLength);
+    if (expectedLen != packetLength) {
+      fatalf("expected and resulting packet lengths do not agree (%u vs. %u)",
+	     expectedLen, packetLength);
+    }
+    
+    //
+    // Send the packet
+    //
+    
+    hopping_sendpacket(sd,
+		       packet,
+		       packetLength,
+		       (struct sockaddr *)destinationAddress,
+		       sizeof (struct sockaddr));
+}
+
+//
 // Send as many probes as we are allowed to send
 //
 
 static void
 hopping_sendprobes(int sd,
-		       struct sockaddr_in* destinationAddress,
-		       struct sockaddr_in* sourceAddress) {
+		   struct sockaddr_in* destinationAddress,
+		   struct sockaddr_in* sourceAddress) {
 
   unsigned int sent = 0;
+
+  //
+  // If there's room in the "bucket", send more new probes
+  //
   
   while (bucket > 0 && hopping_shouldcontinue()) {
     
     struct hopping_probe* probe;
-    unsigned int packetLength;
     unsigned int expectedLen;
     hopping_idtype id;
-    char* packet;
     
     //
     // Depending on algorithm, adjust behaviour
@@ -1016,42 +1164,37 @@ hopping_sendprobes(int sd,
     default:
       fatalf("invalid internal algorithm identifier");
     }
-    
+
     //
-    // Create a packet
+    // Create a packet and send it
     //
-    
+
     id = hopping_getnewid(currentTtl);
     expectedLen = HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + icmpDataLength;
     probe = hopping_newprobe(id,currentTtl,expectedLen,0);
     if (probe == 0) {
       fatalf("cannot allocate a new probe entry");
     }
-    hopping_constructicmp4packet(sourceAddress,
-				     destinationAddress,
-				     id,
-				     currentTtl,
-				     icmpDataLength,
-				     &packet,
-				     &packetLength);
-    if (expectedLen != packetLength) {
-      fatalf("expected and resulting packet lengths do not agree (%u vs. %u)",
-	     expectedLen, packetLength);
-    }
-    
+    hopping_sendprobe(sd,destinationAddress,sourceAddress,expectedLen,probe);
+
     //
-    // Send the packet
+    // Report progress on screen
     //
     
-    hopping_sendpacket(sd,
-			   packet,
-			   packetLength, (struct sockaddr *)destinationAddress,
-			   sizeof (struct sockaddr));
     if (sent > 0) hopping_reportprogress_sendingmore();
     hopping_reportprogress_sent(id,currentTtl);
     sent++;
-    
+        
   }
+
+  //
+  // If there are probes whose response has not arrived and their
+  // timeouts expire, send retransmissions
+  //
+  
+  hopping_retransmitactiveprobes(sd,
+				 destinationAddress,
+				 sourceAddress);
   
 }
 
@@ -1126,7 +1269,7 @@ hopping_probingprocess(int sd,
 				      &responseId,
 				      &responseToIpHdr,
 				      &responseToIcmpHdr)) {
-      
+	
 	debugf("invalid packet, ignoring");
 	hopping_reportprogress_received_other();
 	
