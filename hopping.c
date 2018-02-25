@@ -61,6 +61,7 @@ struct hopping_probe {
   struct timeval sentTime;
   struct timeval initialTimeout;
   int responded;
+  unsigned int duplicateResponses;
   unsigned int responseLength;
   struct timeval responseTime;
   unsigned long delayUSecs;
@@ -261,6 +262,7 @@ hopping_newprobe(hopping_idtype id,
   probe->hops = hops;
   probe->probeLength = probeLength;
   probe->responded = 0;
+  probe->duplicateResponses = 0;
 
   //
   // Set the current time as the time the probe was sent
@@ -344,6 +346,7 @@ hopping_registerResponse(enum hopping_responseType type,
   if (probe->responded) {
     debugf("we have already seen a response to probe id %u", id);
     *responseToProbe = probe;
+    probe->duplicateResponses++;
     return;
   }
   
@@ -1375,6 +1378,7 @@ hopping_reportStats() {
   unsigned int nEchoReplies = 0;
   unsigned int nDestinationUnreachables = 0;
   unsigned int nTimeExceededs = 0;
+  unsigned int nDuplicateResponses = 0;
   unsigned int probeBytes = 0;
   unsigned int responseBytes = 0;
   unsigned int hopsused[256];
@@ -1406,14 +1410,30 @@ hopping_reportStats() {
       }
 
       //
-      // Look at the response types
+      // Look at the possible responses
       //
       
       if (probe->responded) {
+
+	//
+	// Basic response statistics
+	//
+	
 	nResponses++;
 	responseBytes += probe->responseLength;
+	nDuplicateResponses += probe->duplicateResponses;
+
+	//
+	// Calculate response timings
+	//
+	
 	if (probe->delayUSecs < shortestDelay) shortestDelay = probe->delayUSecs; 
-	if (probe->delayUSecs > longestDelay) longestDelay = probe->delayUSecs; 
+	if (probe->delayUSecs > longestDelay) longestDelay = probe->delayUSecs;
+
+	//
+	// Look at the response types
+	//
+	
 	switch (probe->responseType) {
 	case hopping_responseType_echoResponse:
 	  nEchoReplies++;
@@ -1427,6 +1447,7 @@ hopping_reportStats() {
 	default:
 	  fatalf("invalid response type");
 	}
+	
       }
       
     }
@@ -1462,6 +1483,7 @@ hopping_reportStats() {
     printf("%10.4f    shortest response delay (ms)\n", ((float)shortestDelay / 1000.0));
     printf("%10.4f    longest response delay (ms)\n", ((float)longestDelay / 1000.0));
   }
+  printf("  %8u    additional duplicate responses\n", nDuplicateResponses);
 }
 
 int
