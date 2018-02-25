@@ -106,7 +106,7 @@ static enum hopping_algorithms algorithm = hopping_algorithms_sequential;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
 static unsigned char currentTtl = 0;
-static int seenaprogressreport = 0;
+static int seenprogressreport = 0;
 static int lastprogressreportwassentpacket = 0;
 static int hopsMin = -1;
 static int hopsMax = 255;
