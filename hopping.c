@@ -106,6 +106,7 @@ static enum hopping_algorithms algorithm = hopping_algorithms_sequential;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
 static unsigned char currentTtl = 0;
+static int seenaprogressreport = 0;
 static int lastprogressreportwassentpacket = 0;
 static int hopsMin = -1;
 static int hopsMax = 255;
@@ -888,13 +889,16 @@ hopping_reportprogress_sent(hopping_idtype id,
 			    int rexmit) {
   if (progress) {
     //if (lastprogressreportwassentpacket) {
+    if (seenprogressreport) {
       printf("\n");
-      //}
+    }
+    //}
     printf("%s #%u (TTL %u)...",
 	   (rexmit ? "REXMIT" : "ECHO  "),
 	   id,
 	   ttl);
     lastprogressreportwassentpacket = 1;
+    seenprogressreport = 1;
   }
 }
 
@@ -932,6 +936,7 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
     }
     
     lastprogressreportwassentpacket = 0;
+    seenprogressreport = 1;
   }
   
 }
@@ -946,6 +951,7 @@ hopping_reportprogress_received_other() {
   if (progress) {
     printf(" <--- OTHER");
     lastprogressreportwassentpacket = 0;
+    seenprogressreport = 1;
   }
   
 }
@@ -958,7 +964,9 @@ static void
 hopping_reportprogress_end() {
   
   if (progress) {
-    printf("\n");
+    if (seenprogressreport) {
+      printf("\n");
+    }
   }
   
 }
