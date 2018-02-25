@@ -1008,7 +1008,7 @@ hopping_retransmitactiveprobe(int sd,
 			      struct hopping_probe* probe) {
 
   unsigned int expectedLen = HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + icmpDataLength;
-  hopping_idtype id = probe->id;
+  hopping_idtype id = hopping_getnewid(probe->hops);
   struct hopping_probe* newProbe;
   
   debugf("retransmitting probe id %u ttl %u", probe->id, probe->hops);
