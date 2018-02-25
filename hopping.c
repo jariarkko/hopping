@@ -887,9 +887,9 @@ hopping_reportprogress_sent(hopping_idtype id,
 			    unsigned char ttl,
 			    int rexmit) {
   if (progress) {
-    if (lastprogressreportwassentpacket) {
+    //if (lastprogressreportwassentpacket) {
       printf("\n");
-    }
+      //}
     printf("%s #%u (TTL %u)...",
 	   (rexmit ? "REXMIT" : "ECHO  "),
 	   id,
@@ -912,26 +912,20 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
     case hopping_responseType_echoResponse:
       printf(" <--- #%u REPLY", id);
       if (progressDetailed) {
-	printf(": ");
 	hopping_reportBriefConclusion();
       }
-      printf("\n");
       break;
     case hopping_responseType_destinationUnreachable:
       printf(" <--- #%u UNREACH", id);
       if (progressDetailed) {
-	printf(": ");
 	hopping_reportBriefConclusion();
       }
-      printf("\n");
       break;
     case hopping_responseType_timeExceeded:
       printf(" <--- #%u TTL EXPIRED", id);
       if (progressDetailed) {
-	printf(": ");
 	hopping_reportBriefConclusion();
       }
-      printf("\n");
       break;
     default:
       fatalf("invalid response type");
@@ -950,7 +944,7 @@ static void
 hopping_reportprogress_received_other() {
   
   if (progress) {
-    printf(" <--- OTHER\n");
+    printf(" <--- OTHER");
     lastprogressreportwassentpacket = 0;
   }
   
@@ -1472,11 +1466,11 @@ hopping_unreachableresponses() {
 static void
 hopping_reportBriefConclusion() {
   if (hopsMin == hopsMax) {
-    printf("%u hops away", hopsMin);
+    printf(" [%u hops away]", hopsMin);
   } else if (hopsMin == -1 && hopsMax >= maxTtl) {
-    printf("unknown hops away");
+    printf(" [unknown hops away]");
   } else {
-    printf("%u.. %u hops away",
+    printf(" [%u.. %u hops away]",
 	   hopsMin == -1 ? 0 : hopsMin,
 	   hopsMax);
   }
