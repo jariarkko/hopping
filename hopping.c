@@ -1137,8 +1137,6 @@ hopping_sendprobes(int sd,
 		   struct sockaddr_in* destinationAddress,
 		   struct sockaddr_in* sourceAddress) {
 
-  unsigned int sent = 0;
-
   //
   // If there's room in the "bucket", send more new probes
   //
@@ -1189,9 +1187,7 @@ hopping_sendprobes(int sd,
     // Report progress on screen
     //
     
-    if (sent > 0) hopping_reportprogress_sendingmore();
     hopping_reportprogress_sent(id,currentTtl);
-    sent++;
         
   }
 
