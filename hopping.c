@@ -106,6 +106,7 @@ static enum hopping_algorithms algorithm = hopping_algorithms_sequential;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
 static unsigned char currentTtl = 0;
+static int lastprogressreportwassentpacket = 0;
 static int hopsMin = -1;
 static int hopsMax = 255;
 
@@ -885,20 +886,14 @@ static void
 hopping_reportprogress_sent(hopping_idtype id,
 				unsigned char ttl) {
   if (progress) {
+    if (lastprogressreportwassentpacket) {
+      printf("\n");
+    }
     printf("ECHO #%u (TTL %u)...", id, ttl);
+    lastprogressreportwassentpacket = 1;
   }
 }
 
-//
-// Reporting progress: sending many in parallel
-//
-
-static void
-hopping_reportprogress_sendingmore() {
-  if (progress) {
-    printf("\n");
-  }
-}
 
 //
 // Reporting progress: received
@@ -938,6 +933,8 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
     default:
       fatalf("invalid response type");
     }
+    
+    lastprogressreportwassentpacket = 0;
   }
   
 }
@@ -951,6 +948,7 @@ hopping_reportprogress_received_other() {
   
   if (progress) {
     printf(" <--- OTHER\n");
+    lastprogressreportwassentpacket = 0;
   }
   
 }
@@ -1017,12 +1015,22 @@ hopping_retransmitactiveprobe(int sd,
   if (probe == 0) {
     fatalf("cannot allocate a new probe entry");
   }
+
+  //
+  // Send it
+  //
   
   hopping_sendprobe(sd,
 		    destinationAddress,
 		    sourceAddress,
 		    expectedLen,
 		    newProbe);
+  
+  //
+  // Report progress on screen
+  //
+  
+  hopping_reportprogress_sent(id,currentTtl);
 }
 
 //
