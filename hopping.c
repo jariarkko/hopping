@@ -1472,9 +1472,9 @@ hopping_unreachableresponses() {
 static void
 hopping_reportBriefConclusion() {
   if (hopsMin == hopsMax) {
-    printf("%u hops away\n", hopsMin);
+    printf("%u hops away", hopsMin);
   } else if (hopsMin == -1 && hopsMax >= maxTtl) {
-    printf("unknown hops away\n");
+    printf("unknown hops away");
   } else {
     printf("%u.. %u hops away",
 	   hopsMin == -1 ? 0 : hopsMin,
