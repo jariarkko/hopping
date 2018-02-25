@@ -55,7 +55,7 @@ struct hopping_probe {
   int used;
   hopping_idtype id;
   unsigned char hops;
-  struct hopping_probe* previousRetransmission;
+  struct hopping_probe* previousTransmission;
   struct hopping_probe* nextRetransmission;
   unsigned int probeLength;
   struct timeval sentTime;
@@ -277,7 +277,7 @@ hopping_newprobe(hopping_idtype id,
   
   probe->nextRetransmission = 0;
   if (previousProbe == 0) {
-    probe->previousRetransmission = 0;
+    probe->previousTransmission = 0;
     hopping_timeadd(&probe->sentTime,
 			HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US,
 			&probe->initialTimeout);
@@ -289,7 +289,7 @@ hopping_newprobe(hopping_idtype id,
       prevTimeout * HOPPING_RETRANSMISSION_BACKOFF_FACTOR;
     if (newTimeout > HOPPING_MAX_RETRANSMISSION_TIMEOUT_US)
       newTimeout = HOPPING_MAX_RETRANSMISSION_TIMEOUT_US;
-    probe->previousRetransmission = previousProbe;
+    probe->previousTransmission = previousProbe;
     previousProbe->nextRetransmission = probe;
     hopping_timeadd(&probe->sentTime,
 			newTimeout,
@@ -1370,6 +1370,7 @@ static void
 hopping_reportStats() {
   
   unsigned int nProbes = 0;
+  unsigned int nRetransmissions = 0;
   unsigned int nResponses = 0;
   unsigned int nEchoReplies = 0;
   unsigned int nDestinationUnreachables = 0;
@@ -1387,9 +1388,27 @@ hopping_reportStats() {
   for (id = 0; id < HOPPING_MAX_PROBES; id++) {
     struct hopping_probe* probe = &probes[id];
     if (probe->used) {
+
+      //
+      // Basic statistics: number of probes, bytes, etc.
+      //
+      
       nProbes++;
       hopsused[probe->hops]++;
       probeBytes += probe->probeLength;
+
+      //
+      // Count retransmissions
+      //
+      
+      if (probe->previousTransmission != 0) {
+	nRetransmissions++;
+      }
+
+      //
+      // Look at the response types
+      //
+      
       if (probe->responded) {
 	nResponses++;
 	responseBytes += probe->responseLength;
@@ -1409,6 +1428,7 @@ hopping_reportStats() {
 	  fatalf("invalid response type");
 	}
       }
+      
     }
   }
   
@@ -1431,6 +1451,7 @@ hopping_reportStats() {
     }
     printf("\n");
   }
+  printf("  %8u    probes were retransmissions\n", nRetransmissions);
   printf("%10u    bytes used in the probes\n", probeBytes);
   printf("  %8u    responses received\n", nResponses);
   printf("%10u    bytes used in the responses\n", responseBytes);
@@ -1459,40 +1480,62 @@ main(int argc,
   
   argc--; argv++;
   while (argc > 0) {
+    
     if (strcmp(argv[0],"-v") == 0) {
+      
       printf("version 0.2\n");
       exit(0);
+      
     } else if (strcmp(argv[0],"-q") == 0) {
+      
       progress = 0;
+      
     } else if (strcmp(argv[0],"-d") == 0) {
+      
       debug = 1;
+      
     } else if (strcmp(argv[0],"-np") == 0) {
+      
       progress = 0;
       progressDetailed = 0;
+      
     } else if (strcmp(argv[0],"-p") == 0) {
+      
       progress = 1;
       progressDetailed = 1;
+
     } else if (strcmp(argv[0],"-y") == 0) {
+
       statistics = 1;
+
     } else if (strcmp(argv[0],"-s") == 0 && argc > 1 && isdigit(argv[1][0])) {
+
       icmpDataLength = atoi(argv[1]);
       argc--; argv++;
+
     } else if (strcmp(argv[0],"-maxttl") == 0 && argc > 1 && isdigit(argv[1][0])) {
+
       maxTtl = atoi(argv[1]);
       debugf("maxTtl set to %u", maxTtl);
       argc--; argv++;
+
     } else if (strcmp(argv[0],"-maxprobes") == 0 && argc > 1 && isdigit(argv[1][0])) {
+
       maxProbes = atoi(argv[1]);
       debugf("maxProbes set to %u", maxProbes);
       argc--; argv++;
+
     } else if (strcmp(argv[0],"-parallel") == 0 && argc > 1 && isdigit(argv[1][0])) {
+
       parallel = atoi(argv[1]);
       if (parallel < 1 || parallel >= 100) {
 	fatalf("invalid number of parallel probes");
       }
       debugf("parallel set to %u", parallel);
       argc--; argv++;
+
     } else if (strcmp(argv[0],"-algorithm") == 0 && argc > 1) {
+
       if (strcmp(argv[1],"random") == 0) {
 	algorithm = hopping_algorithms_random;
       } else if (strcmp(argv[1],"sequential") == 0) {
@@ -1505,30 +1548,44 @@ main(int argc,
 	fatalf("invalid algorithm value %s (expecting %s)",
 	       argv[1], hopping_algorithms_string);
       }
+      
       argc--; argv++;
+      
     } else if (strcmp(argv[0],"-i") == 0 && argc > 1) {
+
       interface = argv[1];
       argc--; argv++;
+      
     } else if (strcmp(argv[0],"-startttl") == 0 && argc > 1 && isdigit(argv[1][0])) {
+      
       startTtl = atoi(argv[1]);
       if (startTtl > 255) {
 	fatalf("invalid TTL value");
       }
       argc--; argv++;
+      
     } else if (argv[0][0] == '-') {
+      
       fatalf("unrecognised option %s", argv[0]);
+      
     } else if (argc > 1) {
+      
       fatalf("too many arguments");
+      
     } else {
+      
       testDestination = argv[0];
+      
     }
+    
     argc--; argv++;
+    
   }
 
   hopping_runtest(startTtl,
 		      interface,
 		      testDestination);
-
+  
   if (conclusion) {
     hopping_reportConclusion();
   }
