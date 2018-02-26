@@ -96,7 +96,8 @@ static int debug = 0;
 static int progress = 1;
 static int progressDetailed = 0;
 static int conclusion = 1;
-static int statistics = 0;
+static int briefStatistics = 0;
+static int fullStatistics = 0;
 static unsigned int startTtl = 0;
 static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 50;
@@ -1930,13 +1931,42 @@ hopping_reportConclusion() {
 }
 
 //
-// Print out statistics related the process of probing
+// Count the number of probes sent
+//
+
+static unsigned int
+hopping_count_probes_sent() {
+
+  unsigned int count = 0;
+  hopping_idtype id;
+  
+  for (id = 0; id < HOPPING_MAX_PROBES; id++) {
+    struct hopping_probe* probe = &probes[id];
+    if (probe->used) {
+      count++;
+    }
+  }
+
+  return(count);
+}
+  
+//
+// Print out brief statistics related the process of probing
 //
 
 static void
-hopping_reportStats() {
+hopping_reportStatsBrief() {
+  printf("%u probes sent\n", hopping_count_probes_sent());
+}
+
+//
+// Print out full statistics related the process of probing
+//
+
+static void
+hopping_reportStatsFull() {
   
-  unsigned int nProbes = 0;
+  unsigned int nProbes = hopping_count_probes_sent();
   unsigned int nRetransmissions = 0;
   unsigned int nResponses = 0;
   unsigned int nEchoReplies = 0;
@@ -1961,7 +1991,6 @@ hopping_reportStats() {
       // Basic statistics: number of probes, bytes, etc.
       //
       
-      nProbes++;
       hopsused[probe->hops]++;
       probeBytes += probe->probeLength;
 
@@ -2053,6 +2082,16 @@ hopping_reportStats() {
   printf("  %10u    additional duplicate responses\n", nDuplicateResponses);
 }
 
+//
+// Print out statistics related the process of probing
+//
+
+static void
+hopping_reportStats() {
+  if (fullStatistics) hopping_reportStatsFull();
+  else if (briefStatistics) hopping_reportStatsBrief();
+}
+
 int
 main(int argc,
      char** argv) {
@@ -2104,11 +2143,18 @@ main(int argc,
 
     } else if (strcmp(argv[0],"-statistics") == 0) {
 
-      statistics = 1;
+      briefStatistics = 1;
+      fullStatistics = 0;
+
+    } else if (strcmp(argv[0],"-full-statistics") == 0) {
+
+      briefStatistics = 0;
+      fullStatistics = 1;
 
     } else if (strcmp(argv[0],"-no-statistics") == 0) {
 
-      statistics = 0;
+      briefStatistics = 0;
+      fullStatistics = 0;
       
     } else if (strcmp(argv[0],"-size") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
@@ -2204,9 +2250,7 @@ main(int argc,
     hopping_reportConclusion();
   }
   
-  if (statistics) {
-    hopping_reportStats();
-  }
+  hopping_reportStats();
   
   exit(0);
 }
