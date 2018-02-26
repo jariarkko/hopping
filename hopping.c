@@ -198,8 +198,8 @@ fatalp(const char* message) {
 
 static void
 hopping_fillwithstring(char* buffer,
-			   const char* string,
-			   unsigned char bufferSize) {
+		       const char* string,
+		       unsigned char bufferSize) {
   
   const char* stringPointer = string;
   while (bufferSize > 0) {
@@ -242,8 +242,8 @@ hopping_timediffinusecs(struct timeval* later,
 
 static void
 hopping_timeadd(struct timeval* base,
-		    unsigned long us,
-		    struct timeval* result) {
+		unsigned long us,
+		struct timeval* result) {
   unsigned long totalUs = base->tv_usec + us;
   result->tv_sec = base->tv_sec + totalUs / (1000 * 1000);
   result->tv_usec = base->tv_usec + totalUs % (1000 * 1000);
@@ -469,9 +469,9 @@ hopping_getnewid(unsigned char hops) {
 
 static void
 hopping_getifindex(const char* interface,
-		       int* ifIndex,
-		       struct ifreq* ifrp,
-		       struct sockaddr_in *addr) {
+		   int* ifIndex,
+		   struct ifreq* ifrp,
+		   struct sockaddr_in *addr) {
   
   struct ifreq ifr;
   int sd;
@@ -516,7 +516,7 @@ hopping_getifindex(const char* interface,
 
 static void
 hopping_getdestinationaddress(const char* destination,
-				  struct sockaddr_in* address) {
+			      struct sockaddr_in* address) {
   
   struct addrinfo hints, *res;
   struct sockaddr_in *addr;
@@ -580,13 +580,13 @@ hopping_checksum(uint16_t* data,
 
 static void
 hopping_constructicmp4packet(struct sockaddr_in* source,
-				 struct sockaddr_in* destination,
-				 hopping_idtype id,
-				 unsigned char ttl,
-				 unsigned int dataLength,
-				 char** resultPacket,
-				 unsigned int* resultPacketLength) {
-
+			     struct sockaddr_in* destination,
+			     hopping_idtype id,
+			     unsigned char ttl,
+			     unsigned int dataLength,
+			     char** resultPacket,
+			     unsigned int* resultPacketLength) {
+  
   static const char* message = "archtester";
   static char data[IP_MAXPACKET];
   static char packet[IP_MAXPACKET];
@@ -658,10 +658,10 @@ hopping_constructicmp4packet(struct sockaddr_in* source,
 
 static void
 hopping_sendpacket(int sd,
-		       char* packet,
-		       unsigned int packetLength,
-		       struct sockaddr* addr,
-		       size_t addrLength)  {
+		   char* packet,
+		   unsigned int packetLength,
+		   struct sockaddr* addr,
+		   size_t addrLength)  {
   
   if (sendto (sd, packet, packetLength, 0, addr, sizeof (struct sockaddr)) < 0) {
     fatalp("sendto() failed");
@@ -675,7 +675,7 @@ hopping_sendpacket(int sd,
 
 static int
 hopping_receivepacket(int sd,
-			  char** result) {
+		      char** result) {
   
   static char packet[IP_MAXPACKET];
   struct timeval timeout;
@@ -756,7 +756,20 @@ hopping_validatepacket(char* receivedPacket,
   if (ntohs(iphdr.ip_len) < receivedPacketLength) return(0);
   if (iphdr.ip_off != 0) return(0);
   if (iphdr.ip_p != IPPROTO_ICMP) return(0);
+
+  //
+  // What was the TTL of the received packet?
+  // And for some reason, we're getting one less
+  // than the actual value should be...
+  //
+  
   *responseTtl = iphdr.ip_ttl;
+  if (*responseTtl < 255) (*responseTtl)++;
+  
+  //
+  // IP checksum
+  //
+  
   // TODO: check iphdr.ip_sum ...
   
   //
@@ -1003,7 +1016,7 @@ hopping_reportprogress_end() {
 
 static unsigned int
 hopping_probesnotyetsentinrange(unsigned char minTtlValue,
-				    unsigned char maxTtlValue) {
+				unsigned char maxTtlValue) {
 
   int ttlsUsed[256];
   unsigned int count = 0;
@@ -1322,10 +1335,10 @@ hopping_sendprobes(int sd,
 
 static void
 hopping_probingprocess(int sd,
-			   int rd,
-			   struct sockaddr_in* destinationAddress,
-			   struct sockaddr_in* sourceAddress,
-			   unsigned int startTtl) {
+		       int rd,
+		       struct sockaddr_in* destinationAddress,
+		       struct sockaddr_in* sourceAddress,
+		       unsigned int startTtl) {
   
   enum hopping_responseType responseType;
   struct hopping_probe* responseToProbe;
@@ -1451,8 +1464,8 @@ hopping_probingprocess(int sd,
 
 static void
 hopping_runtest(unsigned int startTtl,
-		    const char* interface,
-		    const char* destination) {
+		const char* interface,
+		const char* destination) {
 
   struct sockaddr_in sourceAddress;
   struct sockaddr_in bindAddress;
