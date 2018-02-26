@@ -104,7 +104,7 @@ static unsigned int maxProbes = 50;
 static unsigned int parallel = 1;
 static unsigned int bucket = 0;
 static unsigned int icmpDataLength = 0;
-static enum hopping_algorithms algorithm = hopping_algorithms_sequential;
+static enum hopping_algorithms algorithm = hopping_algorithms_binarysearch;
 static int readjust = 1;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
