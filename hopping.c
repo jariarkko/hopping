@@ -192,6 +192,23 @@ fatalp(const char* message) {
 }
 
 //
+// Algorithm name to string
+//
+
+static const char*
+hopping_algorithm2name(enum hopping_algorithms algo) {
+  switch (algo) {
+  case hopping_algorithms_random: return("random");
+  case hopping_algorithms_sequential: return("sequential");
+  case hopping_algorithms_reversesequential: return("reversesequential");
+  case hopping_algorithms_binarysearch: return("binarysearch");
+  default:
+    fatalf("invalid internal algorithm setting");
+    return("");
+  }
+}
+
+//
 // String processing: fill a buffer with string (cut/repeated as needed
 // to fill the expected length)
 //
@@ -675,7 +692,8 @@ hopping_sendpacket(int sd,
 
 static int
 hopping_receivepacket(int sd,
-		      char** result) {
+		      char** result,
+		      int sleep) {
   
   static char packet[IP_MAXPACKET];
   struct timeval timeout;
@@ -693,8 +711,11 @@ hopping_receivepacket(int sd,
   // raw socket
   //
   
-  timeout.tv_sec =0;
-  timeout.tv_usec = HOPPING_POLL_SLEEP_US;
+  timeout.tv_sec = 0;
+  if (sleep)
+    timeout.tv_usec = HOPPING_POLL_SLEEP_US;
+  else
+    timeout.tv_usec = 0;
   FD_ZERO(&reads);
   FD_SET(sd,&reads);
   selres = select(1, &reads, 0, 0, &timeout);
@@ -709,7 +730,7 @@ hopping_receivepacket(int sd,
 		   packet,
 		   sizeof(packet),
 		   MSG_DONTWAIT,
-		   (struct sockaddr *) &from,
+		   (struct sockaddr*)&from,
 		   &fromlen);
   
   if (bytes < 0 && errno != EAGAIN) {
@@ -1381,21 +1402,26 @@ hopping_probingprocess(int sd,
 
     struct ip responseToIpHdr;
     struct icmp responseToIcmpHdr;
-
+    int firstReception = 1;
+    
     //
     // Send as many probes as we can
     //
-
+    
     hopping_sendprobes(sd,
 		       destinationAddress,
 		       sourceAddress);
     
     //
-    // Wait for responses
+    // Get as many responses as you can. On the first
+    // call to hopping_receivepacket, we will wait if there's
+    // no packet. On the second and subsequent calls we don't
+    // wait, until we've again sent some probes.
     //
     
-    if ((receivedPacketLength = hopping_receivepacket(rd,
-						      &receivedPacket)) > 0) {
+    while ((receivedPacketLength = hopping_receivepacket(rd,
+							 &receivedPacket,
+							 firstReception)) > 0) {
       
       debugf("received a packet of %u bytes", receivedPacketLength);
       
@@ -1444,13 +1470,18 @@ hopping_probingprocess(int sd,
 	
       }
 
-    } else {
-
       //
-      // We did not get a packet, but got a timeout instead
+      // Loop through any additional packets we might have received;
+      // don't however wait for them.
       //
       
+      firstReception = 0;
+      
     }
+
+    //
+    // We did not get a packet, but got a timeout instead
+    //
     
   }
   
@@ -1746,7 +1777,10 @@ hopping_reportStats() {
   printf("\n");
   printf("Statistics:\n");
   printf("\n");
-  printf("  %8u    probes sent out\n", nProbes);
+  printf("%12s    \n", hopping_algorithm2name(algorithm));
+  printf("  %10u    allowed parallel probes\n", parallel);
+  printf("  %10s    readjust search space based on responses\n", readjust ? "yes" : "no");
+  printf("  %10u    probes sent out\n", nProbes);
   if (nProbes > 0) {
     printf("              on TTLs: ");
     seenttl = 0;
@@ -1762,18 +1796,18 @@ hopping_reportStats() {
     }
     printf("\n");
   }
-  printf("  %8u    probes were retransmissions\n", nRetransmissions);
-  printf("%10u    bytes used in the probes\n", probeBytes);
-  printf("  %8u    responses received\n", nResponses);
-  printf("%10u    bytes used in the responses\n", responseBytes);
-  printf("  %8u    echo replies received\n", nEchoReplies);
-  printf("  %8u    destination unreachable errors received\n", nDestinationUnreachables);
-  printf("  %8u    time exceeded errors received\n", nTimeExceededs);
+  printf("  %10u    probes were retransmissions\n", nRetransmissions);
+  printf("%12u    bytes used in the probes\n", probeBytes);
+  printf("  %10u    responses received\n", nResponses);
+  printf("%12u    bytes used in the responses\n", responseBytes);
+  printf("  %10u    echo replies received\n", nEchoReplies);
+  printf("  %10u    destination unreachable errors received\n", nDestinationUnreachables);
+  printf("  %10u    time exceeded errors received\n", nTimeExceededs);
   if (nResponses > 0) {
-    printf("%10.4f    shortest response delay (ms)\n", ((float)shortestDelay / 1000.0));
-    printf("%10.4f    longest response delay (ms)\n", ((float)longestDelay / 1000.0));
+    printf("%12.4f    shortest response delay (ms)\n", ((float)shortestDelay / 1000.0));
+    printf("%12.4f    longest response delay (ms)\n", ((float)longestDelay / 1000.0));
   }
-  printf("  %8u    additional duplicate responses\n", nDuplicateResponses);
+  printf("  %10u    additional duplicate responses\n", nDuplicateResponses);
 }
 
 int
