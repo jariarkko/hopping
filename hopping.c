@@ -350,7 +350,40 @@ hopping_newprobe(hopping_idtype id,
   return(probe);
 }
 
-struct hopping_probe*
+//
+// Find a probe based on TTL
+//
+
+static struct hopping_probe*
+hopping_findprobe_basedonttl(unsigned char ttl) {
+
+  hopping_idtype id;
+
+  //
+  // Look for a suitable probe in the probe table
+  //
+  
+  for (id = 0; id < HOPPING_MAX_PROBES; id++) {
+    struct hopping_probe* probe = &probes[id];
+    if (probe->used &&
+	probe->hops == ttl) {
+      return(probe);
+    }
+  }
+
+  //
+  // Did not find one
+  //
+  
+  return(0);
+}
+
+
+//
+// Find a probe based on the ID
+//
+
+static struct hopping_probe*
 hopping_findprobe(hopping_idtype id) {
   
   struct hopping_probe* probe = &probes[id];
@@ -366,6 +399,30 @@ hopping_findprobe(hopping_idtype id) {
   }
   
 }
+
+//
+// Count how many probes we have NOT yet sent on a given range
+//
+
+static unsigned int
+hopping_countprobes_notsentinrange(unsigned char fromttl,
+				   unsigned char tottl) {
+
+  unsigned int index = (unsigned int)fromttl;
+  unsigned int count = 0;
+  
+  for (index = 0; index < (unsigned int)tottl; index++) {
+    struct hopping_probe* probe = hopping_findprobe_basedonttl((unsigned char)index);
+    if (probe == 0) count++;
+  }
+  
+  return(count);
+}
+
+//
+// Register the reception of a response (ECHO, UNREACHABLE or TIME
+// EXCEEDED) to a probe.
+//
 
 static void
 hopping_registerResponse(enum hopping_responseType type,
@@ -1249,9 +1306,33 @@ hopping_sendprobes(int sd,
     switch (algorithm) {
 
     case hopping_algorithms_random:
+      
       debugf("before random selection, min = %u and max = %u",
 	     hopsMinInclusive, hopsMaxInclusive);
-      currentTtl = hopsMinInclusive + (rand() % (hopsMaxInclusive - hopsMinInclusive + 1));
+      
+      do {
+
+	//
+	// Random pick
+	//
+	
+	currentTtl = hopsMinInclusive + (rand() % (hopsMaxInclusive - hopsMinInclusive + 1));
+
+	//
+	// If we've already sent probes on all TTLs in the current possible range of
+	// TTLs, then just pick this random number and go with it!
+	//
+	
+	if (hopping_countprobes_notsentinrange(hopsMinInclusive,hopsMaxInclusive)) break;
+	
+	//
+	// If we've already sent a probe with this TTL earlier, pick another
+	//
+	
+	if (hopping_findprobe_basedonttl(currentTtl) != 0) continue;
+	
+      } while (1);
+      
       debugf("selected a random ttl %u in range %u..%u", currentTtl, hopsMinInclusive, hopsMaxInclusive);
       break;
 
@@ -1777,7 +1858,7 @@ hopping_reportStats() {
   printf("\n");
   printf("Statistics:\n");
   printf("\n");
-  printf("%12s    \n", hopping_algorithm2name(algorithm));
+  printf("%12s    algorithm\n", hopping_algorithm2name(algorithm));
   printf("  %10u    allowed parallel probes\n", parallel);
   printf("  %10s    readjust search space based on responses\n", readjust ? "yes" : "no");
   printf("  %10u    probes sent out\n", nProbes);
