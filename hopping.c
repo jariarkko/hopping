@@ -68,6 +68,7 @@ struct hopping_probe {
   enum hopping_responseType responseType;
 };
 
+typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 
 //
 // Constants ------------------------------------------------------------
@@ -109,8 +110,8 @@ static unsigned int probesSent = 0;
 static unsigned char currentTtl = 0;
 static int seenprogressreport = 0;
 static int lastprogressreportwassentpacket = 0;
-static int hopsMinInclusive = 0;
-static int hopsMaxInclusive = 255;
+static unsigned char hopsMinInclusive = 0;
+static unsigned char hopsMaxInclusive = 255;
 
 
 //
@@ -127,13 +128,19 @@ hopping_sendprobe(int sd,
 		  struct hopping_probe* probe);
 static void
 hopping_getcurrenttime(struct timeval* result);
+static void
+fatalf(const char* format, ...);
 
 //
 // Some helper macros ----------------------------------------------------
 //
 
-#define hopping_min(a,b) ((a) < (b) ? (a) : (b))
-#define hopping_max(a,b) ((a) > (b) ? (a) : (b))
+#define hopping_assert(cond)	if (!(cond)) {                             \
+                                  fatalf("Assertion failed on %s line %u", \
+                                         __FILE__, __LINE__);		   \
+                                }
+#define hopping_min(a,b)	((a) < (b) ? (a) : (b))
+#define hopping_max(a,b)	((a) > (b) ? (a) : (b))
 
 
 //
@@ -146,6 +153,8 @@ hopping_getcurrenttime(struct timeval* result);
 
 static void
 debugf(const char* format, ...) {
+
+  hopping_assert(format != 0);
   
   if (debug) {
 
@@ -170,6 +179,8 @@ fatalf(const char* format, ...) {
   
   va_list args;
   
+  hopping_assert(format != 0);
+  
   fprintf(stderr,"hopping: error: ");
   va_start (args, format);
   vfprintf(stderr, format, args);
@@ -187,6 +198,7 @@ static void
 fatalp(const char* message) {
   
   const char* string = strerror(errno);
+  hopping_assert(message != 0);
   fatalf("system: %s", string);
   
 }
@@ -219,6 +231,10 @@ hopping_fillwithstring(char* buffer,
 		       unsigned char bufferSize) {
   
   const char* stringPointer = string;
+
+  hopping_assert(buffer != 0);
+  hopping_assert(string != 0);
+  
   while (bufferSize > 0) {
     *buffer = *stringPointer;
     buffer++;
@@ -232,6 +248,10 @@ hopping_fillwithstring(char* buffer,
 static unsigned long
 hopping_timeisless(struct timeval* earlier,
 		   struct timeval* later) {
+
+  hopping_assert(earlier != 0);
+  hopping_assert(later != 0);
+  
   if (earlier->tv_sec < later->tv_sec) return(1);
   else if (earlier->tv_sec > later->tv_sec) return(0);
   else if (earlier->tv_usec < later->tv_usec) return(1);
@@ -241,6 +261,10 @@ hopping_timeisless(struct timeval* earlier,
 static unsigned long
 hopping_timediffinusecs(struct timeval* later,
 			struct timeval* earlier) {
+  
+  hopping_assert(earlier != 0);
+  hopping_assert(later != 0);
+  
   if (later->tv_sec < earlier->tv_sec) {
     fatalf("expected later time to be greater, second go back %uls", earlier->tv_sec - later->tv_sec);
   }
@@ -262,6 +286,7 @@ hopping_timeadd(struct timeval* base,
 		unsigned long us,
 		struct timeval* result) {
   unsigned long totalUs = base->tv_usec + us;
+  hopping_assert(result != 0);
   result->tv_sec = base->tv_sec + totalUs / (1000 * 1000);
   result->tv_usec = base->tv_usec + totalUs % (1000 * 1000);
 }
@@ -272,6 +297,7 @@ hopping_timeadd(struct timeval* base,
 
 const char*
 hopping_addrtostring(struct in_addr* addr) {
+  hopping_assert(addr != 0);
   return(inet_ntoa(*addr));
 }
 
@@ -281,6 +307,7 @@ hopping_addrtostring(struct in_addr* addr) {
 
 static void
 hopping_getcurrenttime(struct timeval* result) {
+  hopping_assert(result != 0);
   if (gettimeofday(result, 0) < 0) {
     fatalp("cannot determine current time via gettimeofday");
   }
@@ -297,6 +324,7 @@ hopping_newprobe(hopping_idtype id,
 		 struct hopping_probe* previousProbe) {
   
   struct hopping_probe* probe = &probes[id];
+  hopping_assert(id < HOPPING_MAX_PROBES);
   if (probe->used) {
     fatalf("cannot allocate a new probe for id %u", (unsigned int)id);
     return(0);
@@ -401,6 +429,24 @@ hopping_findprobe(hopping_idtype id) {
 }
 
 //
+// Check if there is a probe based on TTL
+//
+
+static int
+hopping_thereisprobe_ttl(unsigned char ttl) {
+  return(hopping_findprobe_basedonttl(ttl) != 0);
+}
+
+//
+// Check if there is no probe based on TTL
+//
+
+static int
+hopping_thereisnoprobe_ttl(unsigned char ttl) {
+  return(!hopping_thereisprobe_ttl(ttl));
+}
+
+//
 // Count how many probes we have NOT yet sent on a given range
 //
 
@@ -412,8 +458,9 @@ hopping_countprobes_notsentinrange(unsigned char fromttl,
   unsigned int count = 0;
   
   for (index = 0; index < (unsigned int)tottl; index++) {
-    struct hopping_probe* probe = hopping_findprobe_basedonttl((unsigned char)index);
-    if (probe == 0) count++;
+    if (hopping_thereisnoprobe_ttl((unsigned char)index)) {
+      count++;
+    }
   }
   
   return(count);
@@ -430,12 +477,15 @@ hopping_registerResponse(enum hopping_responseType type,
 			 unsigned char responseTtl,
 			 unsigned int packetLength,
 			 struct hopping_probe** responseToProbe) {
-  
+
   //
   // See if we can find the probe that this is a response to
   //
   
   struct hopping_probe* probe = hopping_findprobe(id);
+
+  hopping_assert(responseToProbe != 0);
+  
   if (probe == 0) {
     debugf("cannot find the probe that response id %u was a response to", id);
     *responseToProbe = 0;
@@ -495,7 +545,7 @@ hopping_registerResponse(enum hopping_responseType type,
     //
     
   }
-  if (type == hopping_responseType_timeExceeded) {
+  if (type == hopping_responseType_timeExceeded && probe->hops < 255) {
     hopsMinInclusive = hopping_max(hopsMinInclusive,probe->hops + 1);
     debugf("time exceeded means hops is at least %u", hopsMinInclusive);
   }
@@ -549,6 +599,10 @@ hopping_getifindex(const char* interface,
   
   struct ifreq ifr;
   int sd;
+
+  hopping_assert(interface != 0);
+  hopping_assert(ifIndex != 0);
+  hopping_assert(addr != 0);
   
   //
   // Get a raw socket
@@ -595,6 +649,9 @@ hopping_getdestinationaddress(const char* destination,
   struct addrinfo hints, *res;
   struct sockaddr_in *addr;
   int rcode;
+
+  hopping_assert(destination != 0);
+  hopping_assert(address != 0);
   
   memset(&hints,0,sizeof(hints));
   hints.ai_family = AF_INET;
@@ -631,6 +688,8 @@ hopping_checksum(uint16_t* data,
 {
   register uint32_t sum = 0;
   int count = length;
+
+  hopping_assert(data != 0);
   
   while (count > 1) {
     sum += *(data++);
@@ -673,6 +732,11 @@ hopping_constructicmp4packet(struct sockaddr_in* source,
   // Make some checks
   //
 
+  hopping_assert(source != 0);
+  hopping_assert(destination != 0);
+  hopping_assert(resultPacket != 0);
+  hopping_assert(resultPacketLength != 0);
+  
   if (HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + dataLength > IP_MAXPACKET) {
     fatalf("requesting to make a too long IP packet for data length %u", dataLength);
   }
@@ -736,6 +800,9 @@ hopping_sendpacket(int sd,
 		   unsigned int packetLength,
 		   struct sockaddr* addr,
 		   size_t addrLength)  {
+
+  hopping_assert(packet != 0);
+  hopping_assert(addr != 0);
   
   if (sendto (sd, packet, packetLength, 0, addr, sizeof (struct sockaddr)) < 0) {
     fatalp("sendto() failed");
@@ -761,6 +828,8 @@ hopping_receivepacket(int sd,
   int bytes;
   
   debugf("waiting for responses");
+  hopping_assert(result != 0);
+  hopping_assert(sleep == 0 || sleep == 1);
   
   //
   // Perform a select call to wait for
@@ -823,6 +892,15 @@ hopping_validatepacket(char* receivedPacket,
   
   struct ip iphdr;
   struct icmp icmphdr;
+
+  //
+  // Check parameters
+  //
+
+  hopping_assert(receivedPacket != 0);
+  hopping_assert(responseType != 0);
+  hopping_assert(responseId != 0);
+  hopping_assert(responseTtl != 0);
   
   //
   // Validate IP4 header
@@ -957,6 +1035,14 @@ hopping_packetisforus(char* receivedPacket,
 		      struct icmp* responseToIcmpHdr) {
   
   struct ip iphdr;
+
+  //
+  // Some internal checks first
+  //
+
+  hopping_assert(receivedPacket != 0);
+  hopping_assert(sourceAddress != 0);
+  hopping_assert(destinationAddress != 0);
   
   //
   // Check the destination is our source address
@@ -1003,6 +1089,9 @@ static void
 hopping_reportprogress_sent(hopping_idtype id,
 			    unsigned char ttl,
 			    int rexmit) {
+
+  hopping_assert(rexmit == 0 || rexmit == 1);
+  
   if (progress) {
     //if (lastprogressreportwassentpacket) {
     if (seenprogressreport) {
@@ -1100,7 +1189,8 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
   unsigned int count = 0;
   unsigned int id;
   unsigned int ttl;
-  
+
+  hopping_assert(minTtlValue <= maxTtlValue);
   memset(ttlsUsed,0,sizeof(ttlsUsed));
   
   for (id = 0; id < HOPPING_MAX_PROBES; id++) {
@@ -1110,7 +1200,9 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
     }
   }
   
-  for (ttl = minTtlValue; ttl <= maxTtlValue; ttl++) {
+  for (ttl = (unsigned int)minTtlValue;
+       ttl <= (unsigned int)maxTtlValue;
+       ttl++) {
     if (!ttlsUsed[ttl]) count++;
   }
   
@@ -1142,6 +1234,10 @@ hopping_retransmitactiveprobe(int sd,
   unsigned int expectedLen = HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + icmpDataLength;
   hopping_idtype id = hopping_getnewid(probe->hops);
   struct hopping_probe* newProbe;
+
+  hopping_assert(destinationAddress != 0);
+  hopping_assert(sourceAddress != 0);
+  hopping_assert(probe != 0);
   
   debugf("retransmitting probe id %u ttl %u", probe->id, probe->hops);
   
@@ -1179,6 +1275,9 @@ hopping_retransmitactiveprobes(int sd,
 
   struct timeval now;
   hopping_idtype otherid;
+  
+  hopping_assert(destinationAddress != 0);
+  hopping_assert(sourceAddress != 0);
   
   //
   // Get current time
@@ -1235,6 +1334,10 @@ hopping_sendprobe(int sd,
     unsigned int packetLength;
     char* packet;
     
+    hopping_assert(destinationAddress != 0);
+    hopping_assert(sourceAddress != 0);
+    hopping_assert(probe != 0);
+    
     //
     // Create a packet
     //
@@ -1260,6 +1363,60 @@ hopping_sendprobe(int sd,
 		       packetLength,
 		       (struct sockaddr *)destinationAddress,
 		       sizeof (struct sockaddr));
+}
+
+static unsigned char
+hopping_bestbinarysearchvalue(unsigned char from,
+			      unsigned char to,
+			      hopping_ttl_test_function suitableTestFunction,
+			      unsigned int numberOfTests) {
+  
+  unsigned char available[256];
+  unsigned int nAvailable;
+  unsigned int i;
+  unsigned char candidateIndex;
+  unsigned char candidate;
+
+  //
+  // Sanity tests
+  //
+
+  hopping_assert(from <= to);
+  hopping_assert(suitableTestFunction != 0);
+  hopping_assert(numberOfTests > 0);
+  
+  //
+  // First, collect the items in the range from..to that satisfy
+  // the test function
+  //
+  
+  for (i = (unsigned int)from; i < (unsigned int)to; i++) {
+    unsigned char ttl = (unsigned char)i;
+    if ((*suitableTestFunction)(ttl)) {
+      hopping_assert(nAvailable <= 255);
+      available[nAvailable++] = ttl;
+    }
+  }
+  
+  //
+  // Then, figure out what items in the list deserve to be
+  // picked, based on how many tests we have available.
+  // For instance, with one test available we would halve
+  // the search space, with two we divide it to three,
+  // with three divide to four, etc.
+  //
+
+  candidateIndex = nAvailable / (numberOfTests+1);
+  hopping_assert(candidateIndex < nAvailable);
+  candidate = available[candidateIndex];
+  debugf("binary search picks candidate %u from a pool of %u available candidates (number of tests = %u)",
+	 candidate, nAvailable, numberOfTests);
+  
+  //
+  // Done. Return the candidate
+  //
+  
+  return(candidate);
 }
 
 //
@@ -1316,8 +1473,9 @@ hopping_sendprobes(int sd,
 	// Random pick
 	//
 	
-	currentTtl = hopsMinInclusive + (rand() % (hopsMaxInclusive - hopsMinInclusive + 1));
-
+	currentTtl = (unsigned char)(((unsigned int)hopsMinInclusive +
+				      (rand() % (((unsigned int)hopsMaxInclusive) - ((unsigned int)hopsMinInclusive) + 1))));
+	
 	//
 	// If we've already sent probes on all TTLs in the current possible range of
 	// TTLs, then just pick this random number and go with it!
@@ -1329,7 +1487,7 @@ hopping_sendprobes(int sd,
 	// If we've already sent a probe with this TTL earlier, pick another
 	//
 	
-	if (hopping_findprobe_basedonttl(currentTtl) != 0) continue;
+	if (hopping_thereisprobe_ttl(currentTtl)) continue;
 	
       } while (1);
       
@@ -1342,7 +1500,7 @@ hopping_sendprobes(int sd,
       // Increase by one (unless this is the first probe
       //
       
-      if (probesSent > 0) currentTtl++;
+      if (probesSent > 0 && currentTtl < 255) currentTtl++;
 
       //
       // If value falls outside currently learned range, readjust
@@ -1368,7 +1526,7 @@ hopping_sendprobes(int sd,
       // Decrease by one (unless this is the first probe
       //
       
-      if (probesSent > 0) currentTtl--;
+      if (probesSent > 0 && currentTtl > 0) currentTtl--;
       
       //
       // If value falls outside currently learned range, readjust
@@ -1389,7 +1547,11 @@ hopping_sendprobes(int sd,
       break;
       
     case hopping_algorithms_binarysearch:
-      fatalf("binary search not implemented yet");
+      currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
+						 hopsMaxInclusive,
+						 hopping_thereisnoprobe_ttl,
+						 bucket);
+      break;
       
     default:
       fatalf("invalid internal algorithm identifier");
