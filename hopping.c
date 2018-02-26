@@ -1863,7 +1863,7 @@ hopping_reportStats() {
   printf("  %10s    readjust search space based on responses\n", readjust ? "yes" : "no");
   printf("  %10u    probes sent out\n", nProbes);
   if (nProbes > 0) {
-    printf("              on TTLs: ");
+    printf("                on TTLs: ");
     seenttl = 0;
     for (ttl = 0; ttl < 256; ttl++) {
       if (hopsused[ttl]) {
