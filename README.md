@@ -8,7 +8,7 @@ The software is under development, and subject to research on best algorithms fo
     facebook.com (157.240.20.35) is 12 hops away and reachable
     8 probes sent
 
-So, 8 probes were needed to determine that facebook.com is 12 hops away. This number could be still improved with the implementation of various heuristics, as the current software starts testing at TTLs 127 and 63 initially, far above what is a likely value in any practical Internet setting.
+So, 8 probes were needed to determine that facebook.com is 12 hops away using a binary search process. This number could be still improved with the implementation of various heuristics, as the current software starts testing at TTLs 127 and 63 initially, far above what is a likely value in any practical Internet setting.
 
 Nevertheless, even the 8 probes is an improvement over the 13 probes needed for the sequential search:
 
