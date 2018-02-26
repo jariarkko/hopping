@@ -351,10 +351,11 @@ hopping_findprobe(hopping_idtype id) {
 
 static void
 hopping_registerResponse(enum hopping_responseType type,
-			     hopping_idtype id,
-			     unsigned int packetLength,
-			     struct hopping_probe** responseToProbe) {
-
+			 hopping_idtype id,
+			 unsigned char responseTtl,
+			 unsigned int packetLength,
+			 struct hopping_probe** responseToProbe) {
+  
   //
   // See if we can find the probe that this is a response to
   //
@@ -365,11 +366,11 @@ hopping_registerResponse(enum hopping_responseType type,
     *responseToProbe = 0;
     return;
   }
-
+  
   //
   // Look at the state of the probe
   //
-
+  
   if (probe->responded) {
     debugf("we have already seen a response to probe id %u", id);
     *responseToProbe = probe;
@@ -380,7 +381,7 @@ hopping_registerResponse(enum hopping_responseType type,
   //
   // This is new. Update the probe data
   //
-
+  
   debugf("this is a new valid response to probe id %u", id);
   probe->responded = 1;
   probe->responseLength = packetLength;
@@ -389,20 +390,41 @@ hopping_registerResponse(enum hopping_responseType type,
 						  &probe->sentTime);
   debugf("probe delay was %.3f ms", probe->delayUSecs / 1000.0);
   probe->responseType = type;
-
+  
   //
   // Update our conclusions about the destination
   //
   
   if (type == hopping_responseType_echoResponse) {
-    hopsMaxInclusive = hopping_min(hopsMaxInclusive,probe->hops);
+    
+    hopsMaxInclusive = hopping_min(hopsMaxInclusive, probe->hops);
     debugf("echo reply means hops is at most %u", hopsMaxInclusive);
+    
+    //
+    // Additional conclusions can be drawn as suggested
+    // by Tero Kivinen: if a packet is received with TTL n,
+    // then it TTL cannot be larger than 255-n, because the
+    // packet must have been sent with a TTL of at most
+    // 255.
+    //
+
+    hopsMaxInclusive = hopping_min(hopsMaxInclusive,
+				   255 - responseTtl);
+    debugf("echo reply TTL was %u so hops must be at most %u",
+	   responseTtl, hopsMaxInclusive);
+    
+    //
+    // TODO: one might also optimistically assume that
+    // sender used default TTL of 64, in which case we
+    // can pretty much guess what the TTL is.
+    //
+    
   }
   if (type == hopping_responseType_timeExceeded) {
     hopsMinInclusive = hopping_max(hopsMinInclusive,probe->hops + 1);
     debugf("time exceeded means hops is at least %u", hopsMinInclusive);
   }
-
+  
   //
   // Update the task counters
   //
@@ -713,15 +735,16 @@ hopping_receivepacket(int sd,
 
 static int
 hopping_validatepacket(char* receivedPacket,
-			   int receivedPacketLength,
-			   enum hopping_responseType* responseType,
-			   hopping_idtype* responseId,
-			   struct ip* responseToIpHdr,
-			   struct icmp* responseToIcmpHdr) {
+		       int receivedPacketLength,
+		       enum hopping_responseType* responseType,
+		       hopping_idtype* responseId,
+		       unsigned char* responseTtl,
+		       struct ip* responseToIpHdr,
+		       struct icmp* responseToIcmpHdr) {
   
   struct ip iphdr;
   struct icmp icmphdr;
-
+  
   //
   // Validate IP4 header
   //
@@ -732,6 +755,7 @@ hopping_validatepacket(char* receivedPacket,
   if (ntohs(iphdr.ip_len) < receivedPacketLength) return(0);
   if (iphdr.ip_off != 0) return(0);
   if (iphdr.ip_p != IPPROTO_ICMP) return(0);
+  *responseTtl = iphdr.ip_ttl;
   // TODO: check iphdr.ip_sum ...
   
   //
@@ -833,15 +857,15 @@ hopping_validatepacket(char* receivedPacket,
 
 static int
 hopping_packetisforus(char* receivedPacket,
-			  int receivedPacketLength,
-			  enum hopping_responseType receivedResponseType,
-			  struct sockaddr_in* sourceAddress,
-			  struct sockaddr_in* destinationAddress,
-			  struct ip* responseToIpHdr,
-			  struct icmp* responseToIcmpHdr) {
+		      int receivedPacketLength,
+		      enum hopping_responseType receivedResponseType,
+		      struct sockaddr_in* sourceAddress,
+		      struct sockaddr_in* destinationAddress,
+		      struct ip* responseToIpHdr,
+		      struct icmp* responseToIcmpHdr) {
   
   struct ip iphdr;
-
+  
   //
   // Check the destination is our source address
   //
@@ -1239,6 +1263,7 @@ hopping_probingprocess(int sd,
   enum hopping_responseType responseType;
   struct hopping_probe* responseToProbe;
   hopping_idtype responseId;
+  unsigned char responseTtl;
   int receivedPacketLength;
   char* receivedPacket;
 
@@ -1257,10 +1282,15 @@ hopping_probingprocess(int sd,
     startTtl = maxTtl;
     debugf("reset startTtl to %u", startTtl);
   }
-  if (algorithm == hopping_algorithms_reversesequential && startTtl < maxTtl) {
+  
+  if (algorithm == hopping_algorithms_reversesequential &&
+      startTtl < maxTtl) {
+    
     startTtl = maxTtl;
     debugf("reset startTtl to %u", startTtl);
+    
   }
+  
   currentTtl = startTtl;
   
   //
@@ -1276,13 +1306,16 @@ hopping_probingprocess(int sd,
     // Send as many probes as we can
     //
 
-    hopping_sendprobes(sd,destinationAddress,sourceAddress);
+    hopping_sendprobes(sd,
+		       destinationAddress,
+		       sourceAddress);
     
     //
     // Wait for responses
     //
     
-    if ((receivedPacketLength = hopping_receivepacket(rd, &receivedPacket)) > 0) {
+    if ((receivedPacketLength = hopping_receivepacket(rd,
+						      &receivedPacket)) > 0) {
       
       debugf("received a packet of %u bytes", receivedPacketLength);
       
@@ -1291,22 +1324,23 @@ hopping_probingprocess(int sd,
       //
       
       if (!hopping_validatepacket(receivedPacket,
-				      receivedPacketLength,
-				      &responseType,
-				      &responseId,
-				      &responseToIpHdr,
-				      &responseToIcmpHdr)) {
+				  receivedPacketLength,
+				  &responseType,
+				  &responseId,
+				  &responseTtl,
+				  &responseToIpHdr,
+				  &responseToIcmpHdr)) {
 	
 	debugf("invalid packet, ignoring");
 	hopping_reportprogress_received_other();
 	
       } else if (!hopping_packetisforus(receivedPacket,
-					    receivedPacketLength,
-					    responseType,
-					    sourceAddress,
-					    destinationAddress,
-					    &responseToIpHdr,
-					    &responseToIcmpHdr)) {
+					receivedPacketLength,
+					responseType,
+					sourceAddress,
+					destinationAddress,
+					&responseToIpHdr,
+					&responseToIcmpHdr)) {
 	
 	debugf("packet not for us, ignoring");
 	hopping_reportprogress_received_other();
@@ -1319,10 +1353,14 @@ hopping_probingprocess(int sd,
 	// Register the response into our own database
 	//
 	
-	hopping_registerResponse(responseType, responseId, receivedPacketLength, &responseToProbe);
+	hopping_registerResponse(responseType,
+				 responseId,
+				 responseTtl,
+				 receivedPacketLength,
+				 &responseToProbe);
 	hopping_reportprogress_received(responseType,
-					    responseId,
-					    responseToProbe != 0 ? 0 : responseToProbe->hops);
+					responseId,
+					responseToProbe != 0 ? 0 : responseToProbe->hops);
 	
       }
 
