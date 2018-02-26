@@ -296,7 +296,7 @@ hopping_timeadd(struct timeval* base,
 // Convert an IPv4 address to string
 //
 
-const char*
+static const char*
 hopping_addrtostring(struct in_addr* addr) {
   hopping_assert(addr != 0);
   return(inet_ntoa(*addr));
@@ -569,7 +569,7 @@ hopping_registerResponse(enum hopping_responseType type,
 // Allocate new identifiers for the different probes
 //
 
-hopping_idtype
+static hopping_idtype
 hopping_getnewid(unsigned char hops) {
   
   static unsigned int nextId = 0;
@@ -670,7 +670,7 @@ hopping_getdestinationaddress(const char* destination,
 // Mapping addresses to strings (n.n.n.n or h:h:...:h)
 //
 
-const char*
+static const char*
 hopping_iptostring(struct sockaddr_in* in) {
   char* result = (char*)malloc(INET_ADDRSTRLEN+1);
   memset(result,0,INET_ADDRSTRLEN+1);
@@ -683,7 +683,7 @@ hopping_iptostring(struct sockaddr_in* in) {
 // Checksum per RFC 1071
 //
 
-uint16_t
+static uint16_t
 hopping_checksum(uint16_t* data,
 		     int length)
 {
@@ -2091,6 +2091,10 @@ hopping_reportStats() {
   if (fullStatistics) hopping_reportStatsFull();
   else if (briefStatistics) hopping_reportStatsBrief();
 }
+
+//
+// The main program -----------------------------------------------------------------------
+//
 
 int
 main(int argc,
