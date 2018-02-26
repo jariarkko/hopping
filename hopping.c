@@ -759,12 +759,12 @@ hopping_validatepacket(char* receivedPacket,
 
   //
   // What was the TTL of the received packet?
-  // And for some reason, we're getting one less
-  // than the actual value should be...
+  // And for some reason, we're getting one higher
+  // TTL than the actual value should be...
   //
   
   *responseTtl = iphdr.ip_ttl;
-  if (*responseTtl < 255) (*responseTtl)++;
+  if (*responseTtl > 0) (*responseTtl)--;
   
   //
   // IP checksum
