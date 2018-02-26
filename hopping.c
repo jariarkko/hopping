@@ -1,4 +1,16 @@
 
+//
+// ----------------------- HOPPING --------------------------------
+//
+//                An Efficient Hop Counter
+//
+//                      by Jari Arkko
+//
+//
+//           All rights reserved for the moment
+//            (working on open sourcing this)
+//
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
