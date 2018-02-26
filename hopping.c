@@ -103,6 +103,7 @@ static unsigned int parallel = 1;
 static unsigned int bucket = 0;
 static unsigned int icmpDataLength = 0;
 static enum hopping_algorithms algorithm = hopping_algorithms_sequential;
+static int readjust = 1;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
 static unsigned char currentTtl = 0;
@@ -1171,6 +1172,24 @@ hopping_sendprobe(int sd,
 }
 
 //
+// Re-initialize currentTtl to the currently learned range
+//
+
+static unsigned char
+hopping_readjusttolearnedrange(int fromthetop) {
+
+  if (readjust) {
+    unsigned char newValue = fromthetop ? hopsMaxInclusive : hopsMinInclusive;
+    debugf("readjusted currentTtl to %u (in range %u..%u)",
+	   newValue, hopsMinInclusive, hopsMaxInclusive);
+    return(newValue);
+  } else {
+    return(currentTtl);
+  }
+
+}
+
+//
 // Send as many probes as we are allowed to send
 //
 
@@ -1194,24 +1213,72 @@ hopping_sendprobes(int sd,
     //
     
     switch (algorithm) {
+
     case hopping_algorithms_random:
       debugf("before random selection, min = %u and max = %u",
 	     hopsMinInclusive, hopsMaxInclusive);
       currentTtl = hopsMinInclusive + (rand() % (hopsMaxInclusive - hopsMinInclusive + 1));
       debugf("selected a random ttl %u in range %u..%u", currentTtl, hopsMinInclusive, hopsMaxInclusive);
       break;
+
     case hopping_algorithms_sequential:
+      
+      //
+      // Increase by one (unless this is the first probe
+      //
+      
       if (probesSent > 0) currentTtl++;
+
+      //
+      // If value falls outside currently learned range, readjust
+      //
+      
+      if (currentTtl < hopsMinInclusive ||
+	  currentTtl > hopsMaxInclusive) {
+
+	currentTtl = hopping_readjusttolearnedrange(0);
+	
+      }
+      
+      //
+      // Done
+      //
+      
       debugf("selected one larger ttl %u", currentTtl);
       break;
+      
     case hopping_algorithms_reversesequential:
+      
+      //
+      // Decrease by one (unless this is the first probe
+      //
+      
       if (probesSent > 0) currentTtl--;
+      
+      //
+      // If value falls outside currently learned range, readjust
+      //
+      
+      if (currentTtl < hopsMinInclusive ||
+	  currentTtl > hopsMaxInclusive) {
+	
+	currentTtl = hopping_readjusttolearnedrange(1);
+	
+      }
+
+      //
+      // Done
+      //
+      
       debugf("selected one smaller ttl %u", currentTtl);
       break;
+      
     case hopping_algorithms_binarysearch:
       fatalf("binary search not implemented yet");
+      
     default:
       fatalf("invalid internal algorithm identifier");
+      
     }
 
     //
@@ -1713,34 +1780,47 @@ main(int argc,
   argc--; argv++;
   while (argc > 0) {
     
-    if (strcmp(argv[0],"-v") == 0) {
+    if (strcmp(argv[0],"-version") == 0) {
       
       printf("version 0.2\n");
       exit(0);
       
-    } else if (strcmp(argv[0],"-q") == 0) {
-      
-      progress = 0;
-      
-    } else if (strcmp(argv[0],"-d") == 0) {
+    } else if (strcmp(argv[0],"-debug") == 0) {
       
       debug = 1;
       
-    } else if (strcmp(argv[0],"-np") == 0) {
+    } else if (strcmp(argv[0],"-no-debug") == 0) {
+      
+      debug = 0;
+      
+    } else if (strcmp(argv[0],"-progress") == 0) {
+      
+      progress = 1;
+      
+    } else if (strcmp(argv[0],"-quiet") == 0 ||
+	       strcmp(argv[0],"-no-progress") == 0) {
       
       progress = 0;
       progressDetailed = 0;
       
-    } else if (strcmp(argv[0],"-p") == 0) {
+    } else if (strcmp(argv[0],"-detailed-progress") == 0) {
       
       progress = 1;
       progressDetailed = 1;
 
-    } else if (strcmp(argv[0],"-y") == 0) {
+    } else if (strcmp(argv[0],"-no-detailed-progress") == 0) {
+      
+      progressDetailed = 0;
+
+    } else if (strcmp(argv[0],"-statistics") == 0) {
 
       statistics = 1;
 
-    } else if (strcmp(argv[0],"-s") == 0 && argc > 1 && isdigit(argv[1][0])) {
+    } else if (strcmp(argv[0],"-no-statistics") == 0) {
+
+      statistics = 0;
+      
+    } else if (strcmp(argv[0],"-size") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
       icmpDataLength = atoi(argv[1]);
       argc--; argv++;
@@ -1766,6 +1846,10 @@ main(int argc,
       debugf("parallel set to %u", parallel);
       argc--; argv++;
 
+    } else if (strcmp(argv[0],"-no-parallel") == 0) {
+      
+      parallel = 1;
+      
     } else if (strcmp(argv[0],"-algorithm") == 0 && argc > 1) {
 
       if (strcmp(argv[1],"random") == 0) {
@@ -1783,7 +1867,15 @@ main(int argc,
       
       argc--; argv++;
       
-    } else if (strcmp(argv[0],"-i") == 0 && argc > 1) {
+    } else if (strcmp(argv[0],"-readjust") == 0) {
+
+      readjust = 1;
+      
+    } else if (strcmp(argv[0],"-no-readjust") == 0) {
+
+      readjust = 0;
+      
+    } else if (strcmp(argv[0],"-interface") == 0 && argc > 1) {
 
       interface = argv[1];
       argc--; argv++;
