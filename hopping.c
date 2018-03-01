@@ -883,7 +883,6 @@ hopping_receivepacket(int sd,
   int selres;
   int bytes;
   
-  debugf("waiting for responses");
   hopping_assert(result != 0);
   hopping_assert(sleep == 0 || sleep == 1);
   
@@ -927,7 +926,6 @@ hopping_receivepacket(int sd,
     
   } else {
 
-    debugf("nothing to read");
     return(0);
     
   }
@@ -1291,7 +1289,6 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
     if (!ttlsUsed[ttl]) count++;
   }
 
-  debugf("hopping_probesnotyetsentinrange %u..%u: %u", minTtlValue, maxTtlValue, count);
   return(count);
 }
 
@@ -1357,8 +1354,8 @@ hopping_retransmitactiveprobe(int sd,
 static void
 hopping_markprobe_astimedout(struct hopping_probe* probe) {
   hopping_assert(probe != 0);
-  debugf("hopping_markprobe_astimedout probe id %u ttl %u responsetype %u",
-	 probe->id, probe->hops, probe->responseType);
+  debugf("hopping_markprobe_astimedout probe id %u ttl %u responsetype %u noresponse %u",
+	 probe->id, probe->hops, probe->responseType, hopping_responseType_noResponse);
   hopping_assert(probe->responseType == hopping_responseType_stillWaiting);
   probe->responseType = hopping_responseType_noResponse;
   if (probe->previousTransmission != 0) {
