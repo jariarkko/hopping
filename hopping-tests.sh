@@ -20,7 +20,7 @@ do
     count=`echo $item | cut -f1 -d:`
     destination=`echo $item | cut -f2 -d:`
     echo -n "$count	" >> $RESULTFILE
-    para=4
+    para=1
     for choice in sequential reversesequential random binarysearch binarysearch-likelycandidate
     do
 	if [ "$choice" = "binarysearch-likelycandidate" ]
