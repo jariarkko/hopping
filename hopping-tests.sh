@@ -9,8 +9,8 @@ DESTINATIONSFILE="hopping-test-destinations.txt"
 TMPOUTPUT=/tmp/hopping-test.out
 RESULTFILE=/tmp/hopping-test-results.txt
 
-rm $TMPOUTPUT
-rm $RESULTFILE
+rm -f $TMPOUTPUT 2> /dev/null
+rm -f $RESULTFILE 2> /dev/null
 touch $RESULTFILE
 
 echo "#	HOPS	SEQ	RSEQ	RND	BINS"
@@ -39,11 +39,11 @@ do
 		else
 		    result=$probecount
 		fi
-	    else
-		result="fail"
 	    fi
-	    echo -n "$result	" >> $RESULTFILE
+	else
+	    result="fail"
 	fi
+	echo -n "$result	" >> $RESULTFILE
     done
     echo "" >> $RESULTFILE
     exit 0
