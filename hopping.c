@@ -1358,7 +1358,6 @@ static void
 hopping_markprobe_astimedout(struct hopping_probe* probe) {
   hopping_assert(probe != 0);
   hopping_assert(probe->responseType == hopping_responseType_stillWaiting);
-  hopping_assert(probe->nextRetransmission == 0);
   probe->responseType = hopping_responseType_noResponse;
   if (probe->previousTransmission != 0) {
     hopping_markprobe_astimedout(probe->previousTransmission);
