@@ -452,7 +452,9 @@ hopping_findprobe(hopping_idtype id) {
 
 static int
 hopping_thereisprobe_ttl(unsigned char ttl) {
-  return(hopping_findprobe_basedonttl(ttl) != 0);
+  int answer = (hopping_findprobe_basedonttl(ttl) != 0);
+  debugf("hopping_thereisprobe_ttl %u answer is %u", answer);
+  return(answer);
 }
 
 //
@@ -461,7 +463,9 @@ hopping_thereisprobe_ttl(unsigned char ttl) {
 
 static int
 hopping_thereisnoprobe_ttl(unsigned char ttl) {
-  return(!hopping_thereisprobe_ttl(ttl));
+  int answer = !hopping_thereisprobe_ttl(ttl);
+  debugf("hopping_thereisnoprobe_ttl %u answer is %u", ttl, answer);
+  return(answer);
 }
 
 //
@@ -1435,7 +1439,7 @@ hopping_bestbinarysearchvalue(unsigned char from,
     if ((*suitableTestFunction)(ttl)) {
       hopping_assert(nAvailable <= 255);
       available[nAvailable++] = ttl;
-      debugf("TTL %u probe would be available", ttl);
+      debugf("TTL %u probe would be available, increasing navailable to %u", ttl, nAvailable);
     }
   }
   
