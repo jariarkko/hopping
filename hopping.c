@@ -1409,7 +1409,7 @@ hopping_bestbinarysearchvalue(unsigned char from,
 			      unsigned int numberOfTests) {
   
   unsigned char available[256];
-  unsigned int nAvailable;
+  unsigned int nAvailable = 0;
   unsigned int i;
   unsigned char candidateIndex;
   unsigned char candidate;
