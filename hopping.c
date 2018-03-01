@@ -1357,6 +1357,8 @@ hopping_retransmitactiveprobe(int sd,
 static void
 hopping_markprobe_astimedout(struct hopping_probe* probe) {
   hopping_assert(probe != 0);
+  debugf("hopping_markprobe_astimedout probe id %u ttl %u responsetype %u",
+	 probe->id, probe->hops, probe->responseType);
   hopping_assert(probe->responseType == hopping_responseType_stillWaiting);
   probe->responseType = hopping_responseType_noResponse;
   if (probe->previousTransmission != 0) {
