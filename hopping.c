@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -120,6 +121,7 @@ static unsigned int maxProbes = 30;
 static unsigned int parallel = 1;
 static unsigned int likelyCandidates = 1;
 static unsigned int bucket = 0;
+static int interrupt = 0;
 static unsigned int icmpDataLength = 0;
 static enum hopping_algorithms algorithm = hopping_algorithms_binarysearch;
 static int readjust = 1;
@@ -1252,6 +1254,7 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
 
 static int
 hopping_shouldcontinue() {
+  if (interrupt) return(0);
   if (probesSent >= maxProbes) return(0);
   if (hopsMinInclusive == hopsMaxInclusive) return(0);
   if (!hopping_probesnotyetsentinrange(hopsMinInclusive,hopsMaxInclusive)) return(0);
@@ -2252,6 +2255,17 @@ hopping_reportStats() {
 }
 
 //
+// Interrupts (Ctrl-C) during program execution
+// should cause the current probing process to end
+// and results printed out.
+//
+
+static void
+hopping_interrupt(int dummy) {
+  interrupt = 1;
+}
+
+//
 // The main program -----------------------------------------------------------------------
 //
 
@@ -2420,10 +2434,12 @@ main(int argc,
     argc--; argv++;
     
   }
-
+  
+  signal(SIGINT, hopping_interrupt);
+  
   hopping_runtest(startTtl,
-		      interface,
-		      testDestination);
+		  interface,
+		  testDestination);
   
   if (conclusion) {
     hopping_reportConclusion();
