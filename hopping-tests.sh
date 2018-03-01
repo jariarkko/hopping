@@ -25,7 +25,7 @@ do
     do
 	if ./hopping -quiet -machine-readable -algorithm $algo -parallel $para $destination > $TMPOUTPUT
 	then
-	    hopscount=`head -1 $TMPOUTPUT`
+	    hopscount=`head -1 $TMPOUTPUT | cut -f1 -d:`
 	    probecount=`tail -1 $TMPOUTPUT`
 	    if [ "x$hopscount" != x"$count" ]
 	    then
