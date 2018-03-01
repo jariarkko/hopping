@@ -1158,6 +1158,7 @@ hopping_reportprogress_sent(hopping_idtype id,
 	   ttl);
     lastprogressreportwassentpacket = 1;
     seenprogressreport = 1;
+    fflush(stdout);
   }
 }
 
@@ -1212,6 +1213,8 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
     
     lastprogressreportwassentpacket = 0;
     seenprogressreport = 1;
+    
+    fflush(stdout);
   }
   
 }
@@ -1227,6 +1230,7 @@ hopping_reportprogress_received_other() {
     printf(" <--- OTHER");
     lastprogressreportwassentpacket = 0;
     seenprogressreport = 1;
+    fflush(stdout);
   }
   
 }
@@ -1417,17 +1421,20 @@ hopping_retransmitactiveprobes(int sd,
 	       maxTries);
 	
 	if (triesSoFar >= maxTries) {
-
+	  
 	  //
 	  // Bailing out, have attempted to send too many
 	  // packets with this TTL already.
 	  //
 
-	  hopping_markprobe_astimedout(probe);
+	  debugf("bailout, about to call reportprogress");
 	  hopping_reportprogress_noresponse(probe->id,probe->hops);
+	  debugf("bailout, about to call astimedout");
+	  hopping_markprobe_astimedout(probe);
+	  debugf("bailout, about to exit");
 	  
 	} else {
-
+	  
 	  //
 	  // Ok. Request a retranmission to be sent...
 	  //
