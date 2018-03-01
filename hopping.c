@@ -165,6 +165,12 @@ hopping_bestinitialotherguess(unsigned char from,
 			      unsigned char to,
 			      hopping_ttl_test_function suitableTestFunction,
 			      unsigned int numberOfTests);
+static void
+hopping_bucket_initialize(unsigned int tasks);
+static void
+hopping_bucket_taketask(void);
+static void
+hopping_bucket_releasetask(void);
 
 //
 // Some helper macros ----------------------------------------------------
@@ -410,7 +416,8 @@ hopping_newprobe(hopping_idtype id,
   debugf("registered a probe for id %u, ttl %u", id, hops);
   
   probesSent++;
-  if (bucket > 0) bucket--;
+
+  hopping_bucket_taketask();
   return(probe);
 }
 
@@ -523,6 +530,37 @@ hopping_countprobes_notsentinrange(unsigned char fromttl,
 }
 
 //
+// Task management, initialize the bucket
+// algorithm.
+//
+
+static void
+hopping_bucket_initialize(unsigned int tasks) {
+  bucket = tasks;
+}
+
+//
+// Task management, take on a task per the bucket
+// algorithm.
+//
+
+static void
+hopping_bucket_taketask() {
+  if (bucket > 0) bucket--;
+}
+
+//
+// Task management, allow a task to continue per the bucket
+// algorithm.
+//
+
+static void
+hopping_bucket_releasetask() {
+  bucket++;
+  if (bucket > parallel) bucket = parallel;
+}
+
+//
 // Register the reception of a response (ECHO, UNREACHABLE or TIME
 // EXCEEDED) to a probe.
 //
@@ -610,8 +648,7 @@ hopping_registerResponse(enum hopping_responseType type,
   // Update the task counters
   //
   
-  bucket++;
-  if (bucket > parallel) bucket = parallel;
+  hopping_bucket_releasetask();
   
   //
   // Return, and set output parameters
@@ -1431,6 +1468,8 @@ hopping_retransmitactiveprobes(int sd,
 	  hopping_reportprogress_noresponse(probe->id,probe->hops);
 	  debugf("bailout, about to call astimedout");
 	  hopping_markprobe_astimedout(probe);
+	  debugf("bailout, about to allow a new task to continue");
+	  hopping_bucket_releasetask();
 	  debugf("bailout, about to exit");
 	  
 	} else {
@@ -1813,7 +1852,7 @@ hopping_probingprocess(int sd,
   // Initialize task counters
   //
 
-  bucket = parallel;
+  hopping_bucket_initialize(parallel);
   
   //
   // Adjust TTL if needed
