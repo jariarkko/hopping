@@ -29,8 +29,8 @@ do
 	    probecount=`tail -1 $TMPOUTPUT`
 	    if [ "x$hopscount" != x"$count" ]
 	    then
-		echo "Failed for $destination with algorithm $algo, hop counts differ $hopscount vs. $count -- exit"
-		exit 1;
+		echo "Warning: for $destination with algorithm $algo, hop counts differ $hopscount vs. $count -- continuing" 2> /dev/stderr
+		result="fail"
 	    else
 		if [ "x$hopscount" = "x" -o "x$probecount" = "x" ]
 		then
