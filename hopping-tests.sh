@@ -13,7 +13,7 @@ rm -f $TMPOUTPUT 2> /dev/null
 rm -f $RESULTFILE 2> /dev/null
 touch $RESULTFILE
 
-echo "#	HOPS	SEQ	RSEQ	RND	BINS" >> $RESULTFILE
+echo "#	HOPS	SEQ	RSEQ	RND	BIN	BIN+LC" >> $RESULTFILE
 
 for item in `cat $DESTINATIONSFILE`
 do
@@ -21,9 +21,17 @@ do
     destination=`echo $item | cut -f2 -d:`
     echo -n "$count	" >> $RESULTFILE
     para=4
-    for algo in sequential reversesequential random binarysearch
+    for choice in sequential reversesequential random binarysearch binarysearch-likelycandidate
     do
-	if ./hopping -quiet -machine-readable -algorithm $algo -parallel $para $destination > $TMPOUTPUT
+	if [ "$choice" != "binarysearch-likelycandidate" ]
+	then
+	    algo=binarysearch
+	    options="-likely-candidates"
+	else
+	    algo=$choice
+	    options="-no-likely-candidates"
+	fi
+	if ./hopping -quiet -machine-readable $options -algorithm $algo -parallel $para $destination > $TMPOUTPUT
 	then
 	    hopscount=`head -1 $TMPOUTPUT | cut -f1 -d:`
 	    probecount=`tail -1 $TMPOUTPUT`
