@@ -8,7 +8,7 @@
 DESTINATIONSFILE="hopping-test-destinations.txt"
 TMPOUTPUT=/tmp/hopping-test.out
 
-for para in 1 4 8
+for para in 16 8 4 1
 do
     
     RESULTFILE="/tmp/hopping-test-results-$para.txt"
@@ -24,13 +24,14 @@ do
 	count=`echo $item | cut -f1 -d:`
 	destination=`echo $item | cut -f2 -d:`
 	
-	echo ''
+	echo -n ''
 	echo '**** Running tests for '$para'-parallel hopcount '$count
-	echo ''
+	echo -n ''
 	
 	echo -n "$count	" >> $RESULTFILE
-	
-	for choice in sequential reversesequential random binarysearch binarysearch-likelycandidate
+
+	# reversesequential
+	for choice in sequential random binarysearch binarysearch-likelycandidate
 	do
 	    if [ "$choice" = "binarysearch-likelycandidate" ]
 	    then
@@ -86,14 +87,14 @@ do
     sed 's/fail/30/g' $RESULTFILE > $DATAFILE
     
     echo "set terminal png" > $CMDFILE
-    echo "set terminal png size 1920,1080" >> $CMDFILE
+    echo "set terminal png size 1920,1080 font 'Helvetica,14'" >> $CMDFILE
     echo "set grid" >> $CMDFILE
     echo "set title 'HOP COUNT ALGORITHMS'" >> $CMDFILE
     echo "set yrange [0:30]" >> $CMDFILE
     echo "set xlabel 'Hops'" >> $CMDFILE
     echo "set ylabel 'Probes'" >> $CMDFILE
     echo "unset label" >> $CMDFILE
-    echo "plot '$DATAFILE' u 1:2 w lp t 'SEQ', '$DATAFILE' u 1:3 w lp t 'RSEQ', '$DATAFILE' u 1:4 w lp t 'RND', '$DATAFILE' u 1:5 w lp t 'BIN', '$DATAFILE' u 1:6 w lp t 'BINL'" >> $CMDFILE
+    echo "plot '$DATAFILE' u 1:2 w lp lw 2 t 'SEQ', '$DATAFILE' u 1:3 w lp lw 2 t 'RSEQ', '$DATAFILE' u 1:4 w lp lw 2 t 'RND', '$DATAFILE' u 1:5 w lp lw 2 t 'BIN', '$DATAFILE' u 1:6 w lp lw 2 t 'BINL'" >> $CMDFILE
     
     echo ''
     echo '**** Running gnuplot for '$para'-parallel'
