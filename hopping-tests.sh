@@ -31,7 +31,9 @@ do
 	    algo=$choice
 	    options="-no-likely-candidates"
 	fi
-	if ./hopping -quiet -machine-readable $options -algorithm $algo -parallel $para $destination > $TMPOUTPUT
+	cmd="./hopping -quiet -machine-readable $options -algorithm $algo -parallel $para $destination"
+	echo "$cmd ..." 2> /dev/stderr	
+	if $cmd > $TMPOUTPUT
 	then
 	    hopscount=`head -1 $TMPOUTPUT | cut -f1 -d:`
 	    probecount=`tail -1 $TMPOUTPUT`
