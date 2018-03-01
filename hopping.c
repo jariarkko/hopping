@@ -1425,6 +1425,7 @@ hopping_bestbinarysearchvalue(unsigned char from,
   // Sanity tests
   //
 
+  debugf("hopping_bestbinarysearchvalue start %u..%u", from, to);
   hopping_assert(from <= to);
   hopping_assert(suitableTestFunction != 0);
   hopping_assert(numberOfTests > 0);
@@ -1439,9 +1440,10 @@ hopping_bestbinarysearchvalue(unsigned char from,
     if ((*suitableTestFunction)(ttl)) {
       hopping_assert(nAvailable <= 255);
       available[nAvailable++] = ttl;
-      debugf("TTL %u probe would be available, increasing navailable to %u", ttl, nAvailable);
+      debugf("TTL %u available, increasing navailable to %u", ttl, nAvailable);
     }
   }
+  debugf("navailable finally %u", nAvailable);
   
   //
   // Then, figure out what items in the list deserve to be
