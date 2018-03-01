@@ -89,6 +89,11 @@ Select the probing algorithm: sequential, reversesequential, random, or binaryse
 
 Sets the algorithms to adjust random or sequential ranges based on what is learned during the probing process, and then pick future values only from the remaining possible range. For instance, a reply from the destination implies that the number of hops is not higher than the TTL in the probe that provoked that reply. And per Tero Kivinen's observation, a reply with the remaining TTL (as it arrives) set to x lets us conclude that the number of hops is at most 255-x, because when the reply was sent, the TTL value was at most 255.
 
+    -likely-candidates
+    -no-likely-candidates
+
+Sets the binary search to start either from the middle of the theoretical range (TTL 128) or from a value that has been determined to be a likely path length for general Internet destinations. A good quess will speed up the search process. The default is that the good guesses are in use.
+
     -interface i
 
 Set the interface. The default is eth0.

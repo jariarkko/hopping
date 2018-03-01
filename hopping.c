@@ -96,6 +96,7 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 #define HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US	(500 * 1000)
 #define HOPPING_MAX_RETRANSMISSION_TIMEOUT_US		(20 * 1000 * 1000)
 #define HOPPING_RETRANSMISSION_BACKOFF_FACTOR		2
+#define HOPPING_TYPICAL_INTERNET_HOP_COUNT		12
 
 //
 // Variables ------------------------------------------------------------
@@ -115,6 +116,7 @@ static unsigned int startTtl = 1;
 static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 30;
 static unsigned int parallel = 1;
+static unsigned int likelyCandidates = 1;
 static unsigned int bucket = 0;
 static unsigned int icmpDataLength = 0;
 static enum hopping_algorithms algorithm = hopping_algorithms_binarysearch;
@@ -1379,6 +1381,27 @@ hopping_sendprobe(int sd,
 		       sizeof (struct sockaddr));
 }
 
+//
+// Get a likely number of hops value for binary search
+// start value, instead of blindly selecting 128 as the
+// middle of the theoretical field. The 128 value is
+// unlikely to be a real max TTL value in most cases.
+//
+
+static unsigned char
+hopping_bestinitialguess(unsigned char from,
+			 unsigned char to) {
+  unsigned char selected = HOPPING_TYPICAL_INTERNET_HOP_COUNT + 1;
+  if (selected < from) selected = from;
+  if (selected > to) selected = to;
+  return(selected);
+}
+  
+//
+// Get a new search value in the possible range of values,
+// based on binary (or tertiary or ...) search algorithm.
+//
+
 static unsigned char
 hopping_bestbinarysearchvalue(unsigned char from,
 			      unsigned char to,
@@ -1561,10 +1584,14 @@ hopping_sendprobes(int sd,
       break;
       
     case hopping_algorithms_binarysearch:
-      currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
-						 hopsMaxInclusive,
-						 hopping_thereisnoprobe_ttl,
-						 bucket);
+      if (probesSent == 0) {
+	currentTtl = hopping_bestinitialguess(hopsMinInclusive,hopsMaxInclusive);
+      } else {
+	currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
+						   hopsMaxInclusive,
+						   hopping_thereisnoprobe_ttl,
+						   bucket);
+      }
       break;
       
     default:
@@ -2264,6 +2291,14 @@ main(int argc,
       }
       
       argc--; argv++;
+      
+    } else if (strcmp(argv[0],"-likely-candidates") == 0) {
+
+      likelyCandidates = 1;
+      
+    } else if (strcmp(argv[0],"-no-likely-candidates") == 0) {
+
+      likelyCandidates = 0;
       
     } else if (strcmp(argv[0],"-readjust") == 0) {
 
