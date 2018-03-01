@@ -1,0 +1,14 @@
+0:10.30.0.144
+1:10.30.0.1
+2:83.150.71.94
+3:rtr1-te4-3.lau.hel.fi.nblnet.com
+4:rtr1-po4.ipo.esp.fi.nblnet.com
+5:www.cisco.com
+6:ikiaikainen.iki.fi
+7:www.philips.com
+8:www.microsoft.com
+9:www.ficix.fi
+10:www.google.com
+11:www.apple.com
+12:www.facebook.com
+13:users.piuha.net

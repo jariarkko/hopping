@@ -2,7 +2,8 @@
 PROGRAMS=	hopping
 
 SOURCES=	hopping.c \
-		Makefile
+		Makefile \
+		hopping-tests.sh
 
 OBJECTS=	hopping.o
 
@@ -18,6 +19,9 @@ hopping:	$(SOURCES) $(OBJECTS)
 
 hopping.o:	$(SOURCES)
 	$(CC) $(CFLAGS) -c hopping.c
+
+test:	$(PROGRAMS)
+	bash ./hopping-tests.sh
 
 install:	$(PROGRAMS)
 	cp hopping /usr/bin/hopping
