@@ -148,6 +148,18 @@ static void
 hopping_getcurrenttime(struct timeval* result);
 static void
 fatalf(const char* format, ...);
+static unsigned int
+hopping_responses();
+static unsigned char
+hopping_bestbinarysearchvalue(unsigned char from,
+			      unsigned char to,
+			      hopping_ttl_test_function suitableTestFunction,
+			      unsigned int numberOfTests);
+static unsigned char
+hopping_bestinitialotherguess(unsigned char from,
+			      unsigned char to,
+			      hopping_ttl_test_function suitableTestFunction,
+			      unsigned int numberOfTests);
 
 //
 // Some helper macros ----------------------------------------------------
@@ -1628,10 +1640,10 @@ hopping_sendprobes(int sd,
 		 hopping_responses() == 0 &&
 		 probesSent < HOPPING_N_TYPICAL_HOP_COUNT_TRIES) {
 	
-	currentTtl = hopping_bestinitialotherguesses(hopsMinInclusive,
-						     hopsMaxInclusive,
-						     hopping_thereisnoprobe_ttl,
-						     bucket);
+	currentTtl = hopping_bestinitialotherguess(hopsMinInclusive,
+						   hopsMaxInclusive,
+						   hopping_thereisnoprobe_ttl,
+						   bucket);
 	
       } else {
 	
