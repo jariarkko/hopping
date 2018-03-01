@@ -58,6 +58,11 @@ Forces hopping to report various amounts of information about the status of the 
 
 Makes hopping provide various levels of final statistics report of what probes were sent and responses received.
 
+    -machine-readable
+    -human-readable
+
+These controls affect the output of summary and statistics information, whether it is expected to be human or machine readable. The default is human readable.
+
     -size n
 
 Makes the ICMP messages used in the process carry n bytes of data. The default is zero, so (for IPv4) the probe packet size will be 28 bytes.

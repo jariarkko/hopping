@@ -23,13 +23,13 @@ do
     para=4
     for algo in sequential reversesequential random binarysearch
     do
-	if ./hopping -quiet -algorithm $algo -parallel $para $destination > $TMPOUTPUT
+	if ./hopping -quiet -machine-readable -algorithm $algo -parallel $para $destination > $TMPOUTPUT
 	then
-	    hopscount=`grep "hops away" $TMPOUTPUT | cut -f4 -d" " | tr -d abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMOPQRSTUVWXYZ`
-	    probecount=`grep "probes sent" $TMPOUTPUT | cut -f1 -d" " | tr -d abcdefghijklmopqrstuvwxyzABCDEFGHIJKLMOPQRSTUVWXYZ`
+	    hopscount=`head -1 $TMPOUTPUT`
+	    probecount=`tail -1 $TMPOUTPUT`
 	    if [ "x$hopscount" != x"$count" ]
 	    then
-		echo "Failed for $destination with algorithm $algo, hop counts differ $hopscount vs. $count-- exit"
+		echo "Failed for $destination with algorithm $algo, hop counts differ $hopscount vs. $count -- exit"
 		exit 1;
 	    else
 		if [ "x$hopscount" = "x" -o "x$probecount" = "x" ]

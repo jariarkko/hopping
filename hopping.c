@@ -110,6 +110,7 @@ static int progressDetailed = 0;
 static int conclusion = 1;
 static int briefStatistics = 1;
 static int fullStatistics = 0;
+static int machineReadable = 0;
 static unsigned int startTtl = 0;
 static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 50;
@@ -1917,29 +1918,62 @@ hopping_reportConclusion() {
   unsigned int exc = hopping_timeexceededresponses();
   unsigned int unreach = hopping_unreachableresponses();
   const char* testDestinationAddressString = hopping_addrtostring(&testDestinationAddress.sin_addr);
+
+  if (!machineReadable) {
+    printf("%s (%s) is ", testDestination, testDestinationAddressString);
+  }
   
-  printf("%s (%s) is ", testDestination, testDestinationAddressString);
   if (hopsMinInclusive == hopsMaxInclusive) {
-    printf("%u hops away", hopsMinInclusive);
+    printf("%u", hopsMinInclusive);
   } else if (hopsMinInclusive == 0 && hopsMaxInclusive >= maxTtl) {
-    printf("unknown hops away");
+    printf("unknown");
   } else {
-    printf("between %u and %u hops away",
-	   hopsMinInclusive,
-	   hopsMaxInclusive);
+    if (machineReadable) {
+      printf("%u-%u",
+	     hopsMinInclusive,
+	     hopsMaxInclusive);
+    } else {
+      printf("between %u and %u",
+	     hopsMinInclusive,
+	     hopsMaxInclusive);
+    }
+  }
+  
+  if (machineReadable) {
+    printf(":");
+  } else {
+    printf(" hops away");
   }
   
   if (repl == 0 && unreach > 0) {
-    printf(", but may not be reachable\n");
+    if (machineReadable)
+      printf("unknown");
+    else
+      printf(", but may not be reachable");
   } else if (repl > 0 && unreach > 0) {
-    printf(" and reachable, but also gives reachability errors\n");
+    if (machineReadable)
+      printf("mixed");
+    else
+      printf(" and reachable, but also gives reachability errors");
   } else if (repl > 0 && unreach == 0) {
-    printf(" and reachable\n");
+    if (machineReadable)
+      printf("reachable");
+    else
+      printf(" and reachable");
   } else if (exc > 0) {
-    printf(", not sure if it is reachable\n");
+    if (machineReadable)
+      printf("unknown");
+    else
+      printf(", not sure if it is reachable");
   } else {
-    printf(", not sure if it is reachable as we got no ICMPs back at all\n");
+    if (machineReadable)
+      printf("unknown");
+    else
+      printf(", not sure if it is reachable as we got no ICMPs back at all");
   }
+  
+  printf("\n");
+  
 }
 
 //
@@ -1968,7 +2002,11 @@ hopping_count_probes_sent() {
 
 static void
 hopping_reportStatsBrief() {
-  printf("%u probes sent\n", hopping_count_probes_sent());
+  if (machineReadable) {
+      printf("%u\n", hopping_count_probes_sent());
+  } else  {
+      printf("%u probes sent\n", hopping_count_probes_sent());
+  }
 }
 
 //
@@ -2156,6 +2194,14 @@ main(int argc,
     } else if (strcmp(argv[0],"-no-detailed-progress") == 0) {
       
       progressDetailed = 0;
+
+    } else if (strcmp(argv[0],"-machine-readable") == 0) {
+      
+      machineReadable = 1;
+
+    } else if (strcmp(argv[0],"-human-readable") == 0) {
+      
+      machineReadable = 0;
 
     } else if (strcmp(argv[0],"-statistics") == 0) {
 
