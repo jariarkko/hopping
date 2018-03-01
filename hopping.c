@@ -411,6 +411,7 @@ hopping_findprobe_basedonttl(unsigned char ttl) {
     struct hopping_probe* probe = &probes[id];
     if (probe->used &&
 	probe->hops == ttl) {
+      debugf("found a probe for TTL %u", ttl);
       return(probe);
     }
   }
@@ -418,7 +419,8 @@ hopping_findprobe_basedonttl(unsigned char ttl) {
   //
   // Did not find one
   //
-  
+
+  debugf("cannot find a probe for TTL %u", ttl);
   return(0);
 }
 
@@ -1433,6 +1435,7 @@ hopping_bestbinarysearchvalue(unsigned char from,
     if ((*suitableTestFunction)(ttl)) {
       hopping_assert(nAvailable <= 255);
       available[nAvailable++] = ttl;
+      debugf("TTL %u probe would be available", ttl);
     }
   }
   
