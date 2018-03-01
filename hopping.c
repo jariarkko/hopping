@@ -59,9 +59,11 @@ enum hopping_algorithms {
 };
 
 enum hopping_responseType {
+  hopping_responseType_stillWaiting,
   hopping_responseType_echoResponse,
   hopping_responseType_destinationUnreachable,
-  hopping_responseType_timeExceeded
+  hopping_responseType_timeExceeded,
+  hopping_responseType_noResponse
 };
 
 struct hopping_probe {
@@ -118,6 +120,7 @@ static int machineReadable = 0;
 static unsigned int startTtl = 1;
 static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 30;
+static unsigned int maxTries = 3;
 static unsigned int parallel = 1;
 static unsigned int likelyCandidates = 1;
 static unsigned int bucket = 0;
@@ -370,7 +373,8 @@ hopping_newprobe(hopping_idtype id,
   probe->probeLength = probeLength;
   probe->responded = 0;
   probe->duplicateResponses = 0;
-
+  probe->responseType = hopping_responseType_stillWaiting;
+  
   //
   // Set the current time as the time the probe was sent
   // (although technically it hasn't been sent yet... but in
@@ -482,6 +486,20 @@ hopping_thereisnoprobe_ttl(unsigned char ttl) {
   int answer = !hopping_thereisprobe_ttl(ttl);
   debugf("hopping_thereisnoprobe_ttl %u answer is %u", ttl, answer);
   return(answer);
+}
+
+//
+// Count how many retranmissions this TTL has seen
+//
+
+static unsigned int
+hopping_retries(struct hopping_probe* probe) {
+  hopping_assert(probe != 0);
+  if (probe->previousTransmission != 0) {
+    return(1+hopping_retries(probe->previousTransmission));
+  } else {
+    return(1);
+  }
 }
 
 //
@@ -1174,6 +1192,12 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
 	hopping_reportBriefConclusion();
       }
       break;
+    case hopping_responseType_noResponse:
+      printf(" <--- #%u NO RESPONSE", id);
+      if (progressDetailed) {
+	hopping_reportBriefConclusion();
+      }
+      break;
     default:
       fatalf("invalid response type");
     }
@@ -1197,6 +1221,19 @@ hopping_reportprogress_received_other() {
     seenprogressreport = 1;
   }
   
+}
+
+//
+// Reporting progress: received nothing
+//
+
+static void
+hopping_reportprogress_noresponse(hopping_idtype id,
+				  unsigned char ttl) {
+  
+  hopping_reportprogress_received(hopping_responseType_noResponse,
+				  id,
+				  ttl);
 }
 
 //
@@ -1304,6 +1341,21 @@ hopping_retransmitactiveprobe(int sd,
 }
 
 //
+// Mark a probe and its predecessors as timed out
+//
+
+static void
+hopping_markprobe_astimedout(struct hopping_probe* probe) {
+  hopping_assert(probe != 0);
+  hopping_assert(probe->responseType == hopping_responseType_stillWaiting);
+  hopping_assert(probe->nextRetransmission == 0);
+  probe->responseType = hopping_responseType_noResponse;
+  if (probe->previousTransmission != 0) {
+    hopping_markprobe_astimedout(probe->previousTransmission);
+  }
+}
+
+//
 // Check to see if we need to retransmit any of the currently
 // active (not responded to) probes
 //
@@ -1344,14 +1396,32 @@ hopping_retransmitactiveprobes(int sd,
       if (hopping_timeisless(&probe->initialTimeout,&now)) {
 	
 	//
-	// Yes. Timeout has passed, request a retranmission to be sent...
+	// Yes. Timeout has passed. But have we sent too many retries
+	// already?
 	//
-	
-	hopping_retransmitactiveprobe(sd,
-				      destinationAddress,
-				      sourceAddress,
-				      probe);
-	
+
+	if (hopping_retries(probe) >= maxTries) {
+
+	  //
+	  // Bailing out, have attempted to send too many
+	  // packets with this TTL already.
+	  //
+
+	  hopping_markprobe_astimedout(probe);
+	  hopping_reportprogress_noresponse(probe->id,probe->hops);
+	  
+	} else {
+
+	  //
+	  // Ok. Request a retranmission to be sent...
+	  //
+	  
+	  hopping_retransmitactiveprobe(sd,
+					destinationAddress,
+					sourceAddress,
+					probe);
+	  
+	}
       }
       
     }
@@ -2134,6 +2204,8 @@ hopping_reportStatsFull() {
   unsigned int nEchoReplies = 0;
   unsigned int nDestinationUnreachables = 0;
   unsigned int nTimeExceededs = 0;
+  unsigned int nNoResponses = 0;
+  unsigned int nNoResponseTimeouts = 0;
   unsigned int nDuplicateResponses = 0;
   unsigned int probeBytes = 0;
   unsigned int responseBytes = 0;
@@ -2169,7 +2241,7 @@ hopping_reportStatsFull() {
       //
       
       if (probe->responded) {
-
+	
 	//
 	// Basic response statistics
 	//
@@ -2177,7 +2249,7 @@ hopping_reportStatsFull() {
 	nResponses++;
 	responseBytes += probe->responseLength;
 	nDuplicateResponses += probe->duplicateResponses;
-
+	
 	//
 	// Calculate response timings
 	//
@@ -2199,12 +2271,22 @@ hopping_reportStatsFull() {
 	case hopping_responseType_timeExceeded:
 	  nTimeExceededs++;
 	  break;
+	case hopping_responseType_noResponse:
+	  fatalf("should not have this response type");
 	default:
 	  fatalf("invalid response type");
 	}
 	
+      } else {
+
+	nNoResponses++;
+	if (probe->responseType == hopping_responseType_noResponse) {
+	  
+	  nNoResponseTimeouts++;
+	  
+	}
+	
       }
-      
     }
   }
   
@@ -2242,6 +2324,8 @@ hopping_reportStatsFull() {
     printf("%12.4f    longest response delay (ms)\n", ((float)longestDelay / 1000.0));
   }
   printf("  %10u    additional duplicate responses\n", nDuplicateResponses);
+  printf("  %10u    probes without responses\n", nNoResponses);
+  printf("  %10u    timeouts waiting for probes with a given TTL\n", nNoResponseTimeouts);
 }
 
 //
@@ -2350,14 +2434,26 @@ main(int argc,
 
       maxTtl = atoi(argv[1]);
       debugf("maxTtl set to %u", maxTtl);
+      if (maxTtl < 1)
+	fatalf("Cannot set -maxttl to a value less than 1");
       argc--; argv++;
 
     } else if (strcmp(argv[0],"-maxprobes") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
       maxProbes = atoi(argv[1]);
       debugf("maxProbes set to %u", maxProbes);
+      if (maxProbes < 1)
+	fatalf("Cannot set -maxprobes to a value less than 1");
       argc--; argv++;
 
+    } else if (strcmp(argv[0],"-maxtries") == 0 && argc > 1 && isdigit(argv[1][0])) {
+      
+      maxTries = atoi(argv[1]);
+      debugf("maxTries set to %u", maxTries);
+      if (maxTries < 1)
+	fatalf("Cannot set -maxtries to a value less than 1");
+      argc--; argv++;
+      
     } else if (strcmp(argv[0],"-parallel") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
       parallel = atoi(argv[1]);

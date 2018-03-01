@@ -94,6 +94,10 @@ Sets the algorithms to adjust random or sequential ranges based on what is learn
 
 Sets the binary search to start either from the middle of the theoretical range (TTL 128) or from a value that has been determined to be a likely path length for general Internet destinations. A good quess will speed up the search process. The default is that the good guesses are in use.
 
+    -maxtries n
+
+Set the maximum number of tries for one hop before giving up if there no replies or even errors coming back. The default is 3.
+
     -interface i
 
 Set the interface. The default is eth0.
