@@ -5,7 +5,7 @@
 5:www.cisco.com
 6:ikiaikainen.iki.fi
 7:www.philips.com
-8:www.microsoft.com
+8:87.236.158.178
 9:www.ficix.fi
 10:www.google.com
 11:www.apple.com
