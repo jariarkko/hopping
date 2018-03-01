@@ -1173,33 +1173,43 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
 				unsigned char ttl) {
   
   if (progress) {
+    
     switch (responseType) {
+      
     case hopping_responseType_echoResponse:
       printf(" <--- #%u REPLY", id);
       if (progressDetailed) {
 	hopping_reportBriefConclusion();
       }
       break;
+      
     case hopping_responseType_destinationUnreachable:
       printf(" <--- #%u UNREACH", id);
       if (progressDetailed) {
 	hopping_reportBriefConclusion();
       }
       break;
+      
     case hopping_responseType_timeExceeded:
       printf(" <--- #%u TTL EXPIRED", id);
       if (progressDetailed) {
 	hopping_reportBriefConclusion();
       }
       break;
+      
     case hopping_responseType_noResponse:
       printf(" <--- #%u NO RESPONSE", id);
       if (progressDetailed) {
 	hopping_reportBriefConclusion();
       }
       break;
+      
+    case hopping_responseType_stillWaiting:
+      fatalf("should not have this response type here");
+      
     default:
       fatalf("invalid response type");
+      
     }
     
     lastprogressreportwassentpacket = 0;
@@ -1400,7 +1410,13 @@ hopping_retransmitactiveprobes(int sd,
 	// already?
 	//
 
-	if (hopping_retries(probe) >= maxTries) {
+	unsigned int triesSoFar = hopping_retries(probe);
+	debugf("Considering new retransmission of probe TTL %u, triesSoFar = %u, maxTries = %u",
+	       probe->hops,
+	       triesSoFar,
+	       maxTries);
+	
+	if (triesSoFar >= maxTries) {
 
 	  //
 	  // Bailing out, have attempted to send too many
@@ -2271,6 +2287,7 @@ hopping_reportStatsFull() {
 	case hopping_responseType_timeExceeded:
 	  nTimeExceededs++;
 	  break;
+	case hopping_responseType_stillWaiting:
 	case hopping_responseType_noResponse:
 	  fatalf("should not have this response type");
 	default:
