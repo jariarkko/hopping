@@ -1584,7 +1584,7 @@ hopping_sendprobes(int sd,
       break;
       
     case hopping_algorithms_binarysearch:
-      if (probesSent == 0) {
+      if (probesSent == 0 && likelyCandidates) {
 	currentTtl = hopping_bestinitialguess(hopsMinInclusive,hopsMaxInclusive);
       } else {
 	currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
