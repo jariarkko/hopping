@@ -1221,7 +1221,8 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
        ttl++) {
     if (!ttlsUsed[ttl]) count++;
   }
-  
+
+  debugf("hopping_probesnotyetsentinrange %u..%u: %u", minTtlValue, maxTtlValue, count);
   return(count);
 }
 
@@ -1444,6 +1445,10 @@ hopping_bestbinarysearchvalue(unsigned char from,
   //
 
   candidateIndex = nAvailable / (numberOfTests+1);
+  debugf("hopping_bestbinarysearchvalue candidate %u navailable %u numberoftests %u",
+	 candidateIndex,
+	 nAvailable,
+	 numberOfTests);
   hopping_assert(candidateIndex < nAvailable);
   candidate = available[candidateIndex];
   debugf("binary search picks candidate %u from a pool of %u available candidates (number of tests = %u)",
