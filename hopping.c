@@ -1435,7 +1435,7 @@ hopping_bestbinarysearchvalue(unsigned char from,
   // the test function
   //
   
-  for (i = (unsigned int)from; i < (unsigned int)to; i++) {
+  for (i = (unsigned int)from; i <= (unsigned int)to; i++) {
     unsigned char ttl = (unsigned char)i;
     if ((*suitableTestFunction)(ttl)) {
       hopping_assert(nAvailable <= 255);
