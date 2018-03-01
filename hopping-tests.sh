@@ -23,7 +23,7 @@ do
     para=4
     for choice in sequential reversesequential random binarysearch binarysearch-likelycandidate
     do
-	if [ "$choice" != "binarysearch-likelycandidate" ]
+	if [ "$choice" = "binarysearch-likelycandidate" ]
 	then
 	    algo=binarysearch
 	    options="-likely-candidates"
