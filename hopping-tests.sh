@@ -13,7 +13,7 @@ rm -f $TMPOUTPUT 2> /dev/null
 rm -f $RESULTFILE 2> /dev/null
 touch $RESULTFILE
 
-echo "#	HOPS	SEQ	RSEQ	RND	BINS"
+echo "#	HOPS	SEQ	RSEQ	RND	BINS" >> $RESULTFILE
 
 for item in `cat $DESTINATIONSFILE`
 do

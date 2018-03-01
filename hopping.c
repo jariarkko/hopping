@@ -111,9 +111,9 @@ static int conclusion = 1;
 static int briefStatistics = 1;
 static int fullStatistics = 0;
 static int machineReadable = 0;
-static unsigned int startTtl = 0;
+static unsigned int startTtl = 1;
 static unsigned int maxTtl = 255;
-static unsigned int maxProbes = 50;
+static unsigned int maxProbes = 30;
 static unsigned int parallel = 1;
 static unsigned int bucket = 0;
 static unsigned int icmpDataLength = 0;
@@ -121,10 +121,10 @@ static enum hopping_algorithms algorithm = hopping_algorithms_binarysearch;
 static int readjust = 1;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
-static unsigned char currentTtl = 0;
+static unsigned char currentTtl = 1;
 static int seenprogressreport = 0;
 static int lastprogressreportwassentpacket = 0;
-static unsigned char hopsMinInclusive = 0;
+static unsigned char hopsMinInclusive = 1;
 static unsigned char hopsMaxInclusive = 255;
 
 
@@ -1897,7 +1897,7 @@ static void
 hopping_reportBriefConclusion() {
   if (hopsMinInclusive == hopsMaxInclusive) {
     printf(" [%u hops away]", hopsMinInclusive);
-  } else if (hopsMinInclusive == 0 && hopsMaxInclusive >= maxTtl) {
+  } else if (hopsMinInclusive <= 1 && hopsMaxInclusive >= maxTtl) {
     printf(" [unknown hops away]");
   } else {
     printf(" [%u.. %u hops away]",
@@ -1925,7 +1925,7 @@ hopping_reportConclusion() {
   
   if (hopsMinInclusive == hopsMaxInclusive) {
     printf("%u", hopsMinInclusive);
-  } else if (hopsMinInclusive == 0 && hopsMaxInclusive >= maxTtl) {
+  } else if (hopsMinInclusive <= 1 && hopsMaxInclusive >= maxTtl) {
     printf("unknown");
   } else {
     if (machineReadable) {

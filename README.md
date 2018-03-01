@@ -95,7 +95,7 @@ Set the interface. The default is eth0.
 
     -startttl n
 
-Start the probing process was a given TTL value.
+Start the probing process was a given TTL value. By default, for the sequential algorithm, the start value is 1. For the reverse sequential algorithm, the start value is 255.
 
 # Installation
 
