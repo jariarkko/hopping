@@ -97,6 +97,8 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 #define HOPPING_MAX_RETRANSMISSION_TIMEOUT_US		(20 * 1000 * 1000)
 #define HOPPING_RETRANSMISSION_BACKOFF_FACTOR		2
 #define HOPPING_TYPICAL_INTERNET_HOP_COUNT		12
+#define HOPPING_TYPICAL_INTERNET_MAX_HOP_COUNT		24
+#define HOPPING_N_TYPICAL_HOP_COUNT_TRIES		4
 
 //
 // Variables ------------------------------------------------------------
@@ -1405,6 +1407,25 @@ hopping_bestinitialguess(unsigned char from,
 }
   
 //
+// Get a likely number of hops value for binary search
+// start value, for probes that are not the first probe
+// but when we have not yet received any responses, so
+// there is no knowledge of the search space reducing at
+// all yet.
+//
+
+static unsigned char
+hopping_bestinitialotherguess(unsigned char from,
+			      unsigned char to,
+			      hopping_ttl_test_function suitableTestFunction,
+			      unsigned int numberOfTests) {
+  return(hopping_bestbinarysearchvalue(HOPPING_TYPICAL_INTERNET_HOP_COUNT + 1,
+				       HOPPING_TYPICAL_INTERNET_MAX_HOP_COUNT,
+				       suitableTestFunction,
+				       numberOfTests));
+}
+  
+//
 // Get a new search value in the possible range of values,
 // based on binary (or tertiary or ...) search algorithm.
 //
@@ -1598,13 +1619,27 @@ hopping_sendprobes(int sd,
       break;
       
     case hopping_algorithms_binarysearch:
-      if (probesSent == 0 && likelyCandidates) {
+      
+      if (likelyCandidates && probesSent == 0) {
+	
 	currentTtl = hopping_bestinitialguess(hopsMinInclusive,hopsMaxInclusive);
+	
+      } else if (likelyCandidates &&
+		 hopping_responses() == 0 &&
+		 probesSent < HOPPING_N_TYPICAL_HOP_COUNT_TRIES) {
+	
+	currentTtl = hopping_bestinitialotherguesses(hopsMinInclusive,
+						     hopsMaxInclusive,
+						     hopping_thereisnoprobe_ttl,
+						     bucket);
+	
       } else {
+	
 	currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
 						   hopsMaxInclusive,
 						   hopping_thereisnoprobe_ttl,
 						   bucket);
+	
       }
       break;
       
@@ -1861,6 +1896,27 @@ hopping_runtest(unsigned int startTtl,
   // Done. Return.
   //
   
+}
+
+//
+// See if there were any responses of any kind yet
+//
+
+static unsigned int
+hopping_responses() {
+
+  unsigned int count = 0;
+  unsigned int id;
+  
+  for (id = 0; id < HOPPING_MAX_PROBES; id++) {
+    struct hopping_probe* probe = &probes[id];
+    if (probe->used &&
+	probe->responded) {
+      count++;
+    }
+  }
+  
+  return(count);
 }
 
 //
