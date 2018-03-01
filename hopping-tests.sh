@@ -19,7 +19,7 @@ for item in `cat $DESTINATIONSFILE`
 do
     count=`echo $item | cut -f1 -d:`
     destination=`echo $item | cut -f2 -d:`
-    echo "$count	" >> $RESULTFILE
+    echo -n "$count	" >> $RESULTFILE
     para=4
     for algo in sequential reversesequential random binarysearch
     do
@@ -46,7 +46,6 @@ do
 	echo -n "$result	" >> $RESULTFILE
     done
     echo "" >> $RESULTFILE
-    exit 0
 done
 
 cat $RESULTFILE
