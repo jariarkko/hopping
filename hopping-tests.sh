@@ -7,85 +7,99 @@
 
 DESTINATIONSFILE="hopping-test-destinations.txt"
 TMPOUTPUT=/tmp/hopping-test.out
-RESULTFILE=/tmp/hopping-test-results.txt
 
-rm -f $TMPOUTPUT 2> /dev/null
-rm -f $RESULTFILE 2> /dev/null
-touch $RESULTFILE
-
-echo "# HOPS	SEQ	RSEQ	RND	BIN	BIN+LC" >> $RESULTFILE
-
-for item in `cat $DESTINATIONSFILE`
+for para in 1 4 8
 do
-    count=`echo $item | cut -f1 -d:`
-    destination=`echo $item | cut -f2 -d:`
+    
+    RESULTFILE="/tmp/hopping-test-results-$para.txt"
+    
+    rm -f $TMPOUTPUT 2> /dev/null
+    rm -f $RESULTFILE 2> /dev/null
+    touch $RESULTFILE
+    
+    echo "# HOPS	SEQ	RSEQ	RND	BIN	BIN+LC" >> $RESULTFILE
 
-    echo ''
-    echo '**** Running tests for hopcount '$count
-    echo ''
-
-    echo -n "$count	" >> $RESULTFILE
-    para=1
-    for choice in sequential reversesequential random binarysearch binarysearch-likelycandidate
+    for item in `cat $DESTINATIONSFILE`
     do
-	if [ "$choice" = "binarysearch-likelycandidate" ]
-	then
-	    algo=binarysearch
-	    options="-likely-candidates"
-	else
-	    algo=$choice
-	    options="-no-likely-candidates"
-	fi
-	cmd="./hopping -quiet -machine-readable $options -algorithm $algo -parallel $para $destination"
-	# echo "$cmd ..." 2> /dev/stderr	
-	if $cmd > $TMPOUTPUT
-	then
-	    hopscount=`head -1 $TMPOUTPUT | cut -f1 -d:`
-	    probecount=`tail -1 $TMPOUTPUT`
-	    if [ "x$hopscount" != x"$count" ]
+	count=`echo $item | cut -f1 -d:`
+	destination=`echo $item | cut -f2 -d:`
+	
+	echo ''
+	echo '**** Running tests for '$para'-parallel hopcount '$count
+	echo ''
+	
+	echo -n "$count	" >> $RESULTFILE
+	
+	for choice in sequential reversesequential random binarysearch binarysearch-likelycandidate
+	do
+	    if [ "$choice" = "binarysearch-likelycandidate" ]
 	    then
-		echo "Warning: for $destination with algorithm $algo, hop counts differ $hopscount vs. $count -- continuing" 2> /dev/stderr
-		result="fail"
+		algo=binarysearch
+		options="-likely-candidates"
 	    else
-		if [ "x$hopscount" = "x" -o "x$probecount" = "x" ]
-		then
-		    echo "Failed for $destination with algorithm $algo -- exit"
-		    exit 1;
-		else
-		    result=$probecount
-		fi
+		algo=$choice
+		options="-no-likely-candidates"
 	    fi
-	else
-	    result="fail"
-	fi
-	echo -n "$result	" >> $RESULTFILE
+	    cmd="./hopping -quiet -machine-readable $options -algorithm $algo -parallel $para $destination"
+	    # echo "$cmd ..." 2> /dev/stderr	
+	    if $cmd > $TMPOUTPUT
+	    then
+		hopscount=`head -1 $TMPOUTPUT | cut -f1 -d:`
+		probecount=`tail -1 $TMPOUTPUT`
+		if [ "x$hopscount" != x"$count" ]
+		then
+		    echo "Warning: for $destination with algorithm $algo, hop counts differ $hopscount vs. $count -- continuing" 2> /dev/stderr
+		    result="fail"
+		else
+		    if [ "x$hopscount" = "x" -o "x$probecount" = "x" ]
+		    then
+			echo "Failed for $destination with algorithm $algo -- exit"
+			exit 1;
+		    else
+			result=$probecount
+		    fi
+		fi
+	    else
+		result="fail"
+	    fi
+	    echo -n "$result	" >> $RESULTFILE
+	done
+	echo "" >> $RESULTFILE
     done
-    echo "" >> $RESULTFILE
+    
+    echo ''
+    echo '**** Results for '$para'-parallel'
+    echo ''
+    
+    cat $RESULTFILE
+    
+    echo ''
+    echo '**** Constructing Gnuplot files for '$para'-parallel'
+    echo ''
+
+    FULLFILE=hopping-results-full-$para.txt
+    DATAFILE=hopping-results-data-$para.txt
+    CMDFILE=hopping-results-gnuplot-$para.txt
+    PICFILE=hopping-results-gnuplot-$para.png
+    
+    cp $RESULTFILE $FULLFILE
+    sed 's/fail/30/g' $RESULTFILE > $DATAFILE
+    
+    echo "set terminal png" > $CMDFILE
+    echo "set terminal png size 1920,1080" >> $CMDFILE
+    echo "set grid" >> $CMDFILE
+    echo "set title 'HOP COUNT ALGORITHMS'" >> $CMDFILE
+    echo "set yrange [0:30]" >> $CMDFILE
+    echo "set xlabel 'Hops'" >> $CMDFILE
+    echo "set ylabel 'Probes'" >> $CMDFILE
+    echo "unset label" >> $CMDFILE
+    echo "plot '$DATAFILE' u 1:2 w lp t 'SEQ', '$DATAFILE' u 1:3 w lp t 'RSEQ', '$DATAFILE' u 1:4 w lp t 'RND', '$DATAFILE' u 1:5 w lp t 'BIN', '$DATAFILE' u 1:6 w lp t 'BINL'" >> $CMDFILE
+    
+    echo ''
+    echo '**** Running gnuplot for '$para'-parallel'
+    echo ''
+    
+    gnuplot < $CMDFILE > $PICFILE
+    
 done
 
-echo ''
-echo '**** Results'
-echo ''
-
-cat $RESULTFILE
-
-echo ''
-echo '**** Constructing Gnuplot files'
-echo ''
-
-cp $RESULTFILE hopping-results-full.txt
-sed 's/fail/50/g' $RESULTFILE > hopping-results-data.txt
-
-echo "set grid" > hopping-results-gnuplot.txt
-echo "set title 'HOP COUNT ALGORITHMS'" > hopping-results-gnuplot.txt
-echo "set yrange [0:50]" > hopping-results-gnuplot.txt
-echo "set xlabel 'Hops'" > hopping-results-gnuplot.txt
-echo "set ylabel 'Probes'" > hopping-results-gnuplot.txt
-echo "unset label" > hopping-results-gnuplot.txt
-echo "plot 'hopping-results-data.txt' u 1:2 w lp t 'Sequential', 'hopping-results-data.txt' u 1:3 w lp t 'Reverse-Sequential', 'hopping-results-data.txt' u 1:4 w lp t 'Random', 'hopping-results-data.txt' u 1:5 w lp t 'Binary-Search', 'hopping-results-data.txt' u 1:6 w lp t 'Binary-Search /w Likely'" > hopping-results-gnuplot.txt
-
-echo ''
-echo '**** Running gnuplot'
-echo ''
-
-gnuplot < 
