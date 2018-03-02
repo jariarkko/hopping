@@ -84,13 +84,13 @@ do
     PICFILE=hopping-results-gnuplot-$para.png
     
     cp $RESULTFILE $FULLFILE
-    sed 's/fail/30/g' $RESULTFILE > $DATAFILE
+    sed 's/fail/40/g' $RESULTFILE > $DATAFILE
     
     echo "set terminal png" > $CMDFILE
     echo "set terminal png size 1920,1080 font 'Helvetica,14'" >> $CMDFILE
     echo "set grid" >> $CMDFILE
     echo "set title 'HOP COUNT ALGORITHMS, "$para" PARALLEL PROBES'" >> $CMDFILE
-    echo "set yrange [0:30]" >> $CMDFILE
+    echo "set yrange [0:40]" >> $CMDFILE
     echo "set xlabel 'Hops'" >> $CMDFILE
     echo "set ylabel 'Probes'" >> $CMDFILE
     echo "unset label" >> $CMDFILE

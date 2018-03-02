@@ -93,7 +93,7 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
         "random, sequential, reversesequential, or binarysearch"
 
 #define HOPPING_MAX_PROBES			        256
-#define HOPPING_POLL_FREQUENCY				10
+#define HOPPING_POLL_FREQUENCY				100
 #define HOPPING_POLL_SLEEP_US				((1000 * 1000) /              \
                                        			  HOPPING_POLL_FREQUENCY)
 #define HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US	(500 * 1000)
@@ -168,6 +168,8 @@ hopping_bestinitialotherguess(unsigned char from,
 			      unsigned int numberOfTests);
 static void
 hopping_bucket_initialize(unsigned int tasks);
+static int
+hopping_bucket_cantakeontask();
 static void
 hopping_bucket_taketask(void);
 static void
@@ -538,6 +540,16 @@ hopping_countprobes_notsentinrange(unsigned char fromttl,
 static void
 hopping_bucket_initialize(unsigned int tasks) {
   bucket = tasks;
+}
+
+//
+// Task management, are we allowed to take on a new
+// task?
+//
+
+static int
+hopping_bucket_cantakeontask() {
+  return(bucket > 0);
 }
 
 //
@@ -1699,7 +1711,8 @@ hopping_sendprobes(int sd,
   // If there's room in the "bucket", send more new probes
   //
   
-  while (bucket > 0 && hopping_shouldcontinue()) {
+  if (hopping_bucket_cantakeontask() &&
+      hopping_shouldcontinue()) {
     
     struct hopping_probe* probe;
     unsigned int expectedLen;
@@ -1835,18 +1848,19 @@ hopping_sendprobes(int sd,
     if (probe == 0) {
       fatalf("cannot allocate a new probe entry");
     }
+    
     hopping_sendprobe(sd,
 		      destinationAddress,
 		      sourceAddress,
 		      expectedLen,
 		      probe);
-
+    
     //
     // Report progress on screen
     //
     
     hopping_reportprogress_sent(id,probe->hops,0);
-        
+    
   }
 
   //
@@ -1931,7 +1945,9 @@ hopping_probingprocess(int sd,
     
     while ((receivedPacketLength = hopping_receivepacket(rd,
 							 &receivedPacket,
-							 firstReception)) > 0) {
+							 firstReception &&
+							 (hopping_bucket_cantakeontask() == 0 ||
+							  hopping_shouldcontinue() == 0))) > 0) {
       
       debugf("received a packet of %u bytes", receivedPacketLength);
       
@@ -1979,7 +1995,7 @@ hopping_probingprocess(int sd,
 					responseToProbe != 0 ? 0 : responseToProbe->hops);
 	
       }
-
+      
       //
       // Loop through any additional packets we might have received;
       // don't however wait for them.
