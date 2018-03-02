@@ -980,7 +980,8 @@ hopping_validatepacket(char* receivedPacket,
 		       unsigned char* responseTtl,
 		       struct ip* responseToIpHdr,
 		       struct icmp* responseToIcmpHdr) {
-  
+
+  uint16_t offset;
   struct ip iphdr;
   struct icmp icmphdr;
 
@@ -1014,6 +1015,11 @@ hopping_validatepacket(char* receivedPacket,
     return(0);
   }
 
+  offset = iphdr.ip_off;
+  debugf("offset = %x", offset);
+  offset &= (0xFFFF - 0x4000);
+  debugf("offset after adjust = %x", offset);
+  
   if (iphdr.ip_off != 0) {
     debugf("offset not zero");
     return(0);
