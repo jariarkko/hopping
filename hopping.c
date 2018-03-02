@@ -2582,7 +2582,7 @@ main(int argc,
       debugf("parallel set to %u", parallel);
       argc--; argv++;
 
-    } else if (strcmp(argv[0],"-probe-spacing") == 0 && argc > 1 && isdigit(argv[1][0])) {
+    } else if (strcmp(argv[0],"-probe-pacing") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
       probePacing = atoi(argv[1]);
       debugf("probePacing set to %u", probePacing);
