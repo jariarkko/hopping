@@ -216,6 +216,24 @@ debugf(const char* format, ...) {
 }
 
 //
+// Display a warning
+//
+
+static void
+warnf(const char* format, ...) {
+  
+  va_list args;
+  
+  hopping_assert(format != 0);
+  
+  fprintf(stderr,"hopping: warning: ");
+  va_start (args, format);
+  vfprintf(stderr, format, args);
+  va_end (args);
+  fprintf(stderr,"\n");
+}
+
+//
 // Display a fatal error
 //
 
@@ -643,6 +661,10 @@ hopping_registerResponse(enum hopping_responseType type,
 
     hopsMaxInclusive = (unsigned char)(hopping_min((unsigned int)hopsMaxInclusive,
 						   (unsigned int)256 - (unsigned int)responseTtl));
+    if (hopsMaxInclusive < hopsMinInclusive) {
+      warnf("TTL in an ECHO REPLY is too large compared to current window");
+      hopsMaxInclusive = hopsMinInclusive;
+    }
     debugf("echo reply TTL was %u so hops must be at most %u",
 	   responseTtl, hopsMaxInclusive);
     
