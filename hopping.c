@@ -100,7 +100,8 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 #define HOPPING_MAX_RETRANSMISSION_TIMEOUT_US		(20 * 1000 * 1000)
 #define HOPPING_RETRANSMISSION_BACKOFF_FACTOR		2
 #define HOPPING_TYPICAL_INTERNET_HOP_COUNT		5
-#define HOPPING_TYPICAL_INTERNET_MAX_HOP_COUNT		24
+#define HOPPING_TYPICAL_INTERNET_MIN_HOP_COUNT		3
+#define HOPPING_TYPICAL_INTERNET_MAX_HOP_COUNT		22
 #define HOPPING_N_TYPICAL_HOP_COUNT_TRIES		4
 
 //
@@ -1595,7 +1596,7 @@ hopping_bestinitialotherguess(unsigned char from,
 			      unsigned char to,
 			      hopping_ttl_test_function suitableTestFunction,
 			      unsigned int numberOfTests) {
-  return(hopping_bestbinarysearchvalue(HOPPING_TYPICAL_INTERNET_HOP_COUNT + 1,
+  return(hopping_bestbinarysearchvalue(HOPPING_TYPICAL_INTERNET_MIN_HOP_COUNT,
 				       HOPPING_TYPICAL_INTERNET_MAX_HOP_COUNT,
 				       suitableTestFunction,
 				       numberOfTests));
