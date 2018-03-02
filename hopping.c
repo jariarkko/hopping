@@ -661,10 +661,12 @@ hopping_registerResponse(enum hopping_responseType type,
 
     hopsMaxInclusive = (unsigned char)(hopping_min((unsigned int)hopsMaxInclusive,
 						   (unsigned int)256 - (unsigned int)responseTtl));
+    debugf("hopsMinInclusive %u hopsMaxInclusive %u", hopsMinInclusive, hopsMaxInclusive);
     if (hopsMaxInclusive < hopsMinInclusive) {
       warnf("TTL in an ECHO REPLY is too large compared to current window");
       hopsMaxInclusive = hopsMinInclusive;
     }
+    
     debugf("echo reply TTL was %u so hops must be at most %u",
 	   responseTtl, hopsMaxInclusive);
     
