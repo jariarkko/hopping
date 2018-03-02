@@ -641,8 +641,8 @@ hopping_registerResponse(enum hopping_responseType type,
     // 255.
     //
 
-    hopsMaxInclusive = hopping_min(hopsMaxInclusive,
-				   255 - responseTtl);
+    hopsMaxInclusive = (unsigned char)(hopping_min((unsigned int)hopsMaxInclusive,
+						   (unsigned int)256 - (unsigned int)responseTtl));
     debugf("echo reply TTL was %u so hops must be at most %u",
 	   responseTtl, hopsMaxInclusive);
     
