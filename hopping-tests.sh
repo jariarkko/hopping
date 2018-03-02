@@ -17,7 +17,7 @@ do
     rm -f $RESULTFILE 2> /dev/null
     touch $RESULTFILE
     
-    echo "# HOPS	SEQ	RSEQ	RND	BIN	BIN+LC" >> $RESULTFILE
+    echo "# HOPS	SEQ	RND	BIN	BIN+LC" >> $RESULTFILE
 
     for item in `cat $DESTINATIONSFILE`
     do
