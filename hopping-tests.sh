@@ -8,7 +8,7 @@
 DESTINATIONSFILE="hopping-test-destinations.txt"
 TMPOUTPUT=/tmp/hopping-test.out
 
-for para in 16 8 4 1
+for para in 16 8 4 2 1
 do
     
     RESULTFILE="/tmp/hopping-test-results-$para.txt"
@@ -89,8 +89,8 @@ do
     echo "set terminal png" > $CMDFILE
     echo "set terminal png size 1920,1080 font 'Helvetica,14'" >> $CMDFILE
     echo "set grid" >> $CMDFILE
-    echo "set title 'HOP COUNT ALGORITHMS'" >> $CMDFILE
-    echo "set yrange [0:20]" >> $CMDFILE
+    echo "set title 'HOP COUNT ALGORITHMS, "$para" PARALLEL PROBES'" >> $CMDFILE
+    echo "set yrange [0:30]" >> $CMDFILE
     echo "set xlabel 'Hops'" >> $CMDFILE
     echo "set ylabel 'Probes'" >> $CMDFILE
     echo "unset label" >> $CMDFILE
@@ -103,4 +103,3 @@ do
     gnuplot < $CMDFILE > $PICFILE
     
 done
-

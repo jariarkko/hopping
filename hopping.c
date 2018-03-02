@@ -997,12 +997,32 @@ hopping_validatepacket(char* receivedPacket,
   // Validate IP4 header
   //
   
-  if (receivedPacketLength < HOPPING_IP4_HDRLEN) return(0);
+  if (receivedPacketLength < HOPPING_IP4_HDRLEN) {
+    debugf("packet length too small");
+    return(0);
+  }
+  
   memcpy(&iphdr,receivedPacket,HOPPING_IP4_HDRLEN);
-  if (iphdr.ip_v != 4) return(0);
-  if (ntohs(iphdr.ip_len) < receivedPacketLength) return(0);
-  if (iphdr.ip_off != 0) return(0);
-  if (iphdr.ip_p != IPPROTO_ICMP) return(0);
+  
+  if (iphdr.ip_v != 4)  {
+    debugf("version is not 4");
+    return(0);
+  }
+  
+  if (ntohs(iphdr.ip_len) > receivedPacketLength) {
+    debugf("claimed packet length larger than received packet length");
+    return(0);
+  }
+
+  if (iphdr.ip_off != 0) {
+    debugf("offset not zero");
+    return(0);
+  }
+
+  if (iphdr.ip_p != IPPROTO_ICMP) {
+    debugf("not icmp");
+    return(0);
+  }
 
   //
   // What was the TTL of the received packet?
@@ -1012,7 +1032,7 @@ hopping_validatepacket(char* receivedPacket,
   
   *responseTtl = iphdr.ip_ttl;
   if (*responseTtl > 0) (*responseTtl)--;
-  
+
   //
   // IP checksum
   //
@@ -1023,7 +1043,10 @@ hopping_validatepacket(char* receivedPacket,
   // Validate ICMP4 header
   //
   
-  if (receivedPacketLength < HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN) return(0);
+  if (receivedPacketLength < HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN) {
+    debugf("not enough lenfgth for IP + ICMP");
+    return(0);
+  }
   memcpy(&icmphdr,&receivedPacket[HOPPING_IP4_HDRLEN],HOPPING_ICMP4_HDRLEN);
   *responseId = icmphdr.icmp_id;
   
