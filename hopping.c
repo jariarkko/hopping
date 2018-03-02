@@ -123,7 +123,7 @@ static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 30;
 static unsigned int maxTries = 3;
 static unsigned int parallel = 1;
-static unsigned int probeSpacing = 0;
+static unsigned int probePacing = 0;
 static unsigned int likelyCandidates = 1;
 static unsigned int bucket = 0;
 static int interrupt = 0;
@@ -2584,8 +2584,8 @@ main(int argc,
 
     } else if (strcmp(argv[0],"-probe-spacing") == 0 && argc > 1 && isdigit(argv[1][0])) {
 
-      probeSpacing = atoi(argv[1]);
-      debugf("probeSpacing set to %u", probeSpacing);
+      probePacing = atoi(argv[1]);
+      debugf("probePacing set to %u", probePacing);
       argc--; argv++;
 
     } else if (strcmp(argv[0],"-no-parallel") == 0) {
