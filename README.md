@@ -80,6 +80,10 @@ Sets the maximum number of probes to use before the software stops, even if it h
 
 Makes the process employ a maximum of n parallel probes. The default value is 1. The -no-parallel option is equal to -parallel 1.
 
+    -probe-spacing s
+
+When sending parallel probes, by default they are sent right after each other. However, with the probe-spacing option you can specify the number of microseconds to wait before sending another probe.
+
     -algorithm a
 
 Select the probing algorithm: sequential, reversesequential, random, or binarysearch. The default is binarysearch.

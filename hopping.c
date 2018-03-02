@@ -123,6 +123,7 @@ static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 30;
 static unsigned int maxTries = 3;
 static unsigned int parallel = 1;
+static unsigned int probeSpacing = 0;
 static unsigned int likelyCandidates = 1;
 static unsigned int bucket = 0;
 static int interrupt = 0;
@@ -923,7 +924,8 @@ hopping_sendpacket(int sd,
 static int
 hopping_receivepacket(int sd,
 		      char** result,
-		      int sleep) {
+		      int doareadwait,
+		      int doasendwait) {
   
   static char packet[IP_MAXPACKET];
   struct timeval timeout;
@@ -934,7 +936,8 @@ hopping_receivepacket(int sd,
   int bytes;
   
   hopping_assert(result != 0);
-  hopping_assert(sleep == 0 || sleep == 1);
+  hopping_assert(doareadwait == 0 || doareadwait == 1);
+  hopping_assert(doasendwait == 0 || doasendwait == 1);
   
   //
   // Perform a select call to wait for
@@ -943,10 +946,17 @@ hopping_receivepacket(int sd,
   //
   
   timeout.tv_sec = 0;
-  if (sleep)
-    timeout.tv_usec = HOPPING_POLL_SLEEP_US;
-  else
+  if (doareadwait) {
+    if (doasendwait) {
+      timeout.tv_usec = probePacing % (1000 * 1000);
+      timeout.tv_sec = probePacing / (1000 * 1000);
+    } else {
+      timeout.tv_usec = HOPPING_POLL_SLEEP_US;
+    }
+  } else {
     timeout.tv_usec = 0;
+  }
+  
   FD_ZERO(&reads);
   FD_SET(sd,&reads);
   selres = select(1, &reads, 0, 0, &timeout);
@@ -1945,9 +1955,9 @@ hopping_probingprocess(int sd,
     
     while ((receivedPacketLength = hopping_receivepacket(rd,
 							 &receivedPacket,
-							 firstReception &&
-							 (hopping_bucket_cantakeontask() == 0 ||
-							  hopping_shouldcontinue() == 0))) > 0) {
+							 firstReception,
+							 (hopping_bucket_cantakeontask() &&
+							  hopping_shouldcontinue()))) > 0) {
       
       debugf("received a packet of %u bytes", receivedPacketLength);
       
@@ -2570,6 +2580,12 @@ main(int argc,
 	fatalf("invalid number of parallel probes");
       }
       debugf("parallel set to %u", parallel);
+      argc--; argv++;
+
+    } else if (strcmp(argv[0],"-probe-spacing") == 0 && argc > 1 && isdigit(argv[1][0])) {
+
+      probeSpacing = atoi(argv[1]);
+      debugf("probeSpacing set to %u", probeSpacing);
       argc--; argv++;
 
     } else if (strcmp(argv[0],"-no-parallel") == 0) {
