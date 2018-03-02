@@ -120,7 +120,7 @@ static int fullStatistics = 0;
 static int machineReadable = 0;
 static unsigned int startTtl = 1;
 static unsigned int maxTtl = 255;
-static unsigned int maxProbes = 30;
+static unsigned int maxProbes = 50;
 static unsigned int maxTries = 3;
 static unsigned int parallel = 1;
 static unsigned int probePacing = 0;
@@ -2002,7 +2002,7 @@ hopping_probingprocess(int sd,
 				 &responseToProbe);
 	hopping_reportprogress_received(responseType,
 					responseId,
-					responseToProbe != 0 ? 0 : responseToProbe->hops);
+					responseToProbe != 0 ? responseToProbe->hops : 0);
 	
       }
       
