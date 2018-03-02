@@ -1015,7 +1015,7 @@ hopping_validatepacket(char* receivedPacket,
     return(0);
   }
 
-  offset = iphdr.ip_off;
+  offset = ntohs(iphdr.ip_off);
   debugf("offset = %x", offset);
   offset &= (0xFFFF - 0x4000);
   debugf("offset after adjust = %x", offset);
