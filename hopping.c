@@ -1020,7 +1020,7 @@ hopping_validatepacket(char* receivedPacket,
   offset &= (0xFFFF - 0x4000);
   debugf("offset after adjust = %x", offset);
   
-  if (iphdr.ip_off != 0) {
+  if (offset != 0) {
     debugf("offset not zero");
     return(0);
   }
