@@ -2057,13 +2057,13 @@ hopping_bestbinarysearchvalue(unsigned char from,
     // Probabilistic distribution based on likelihoods of different hop counts
     //
     
-    double candidateProbabilityPosition = (1.0 * nAvailable) / (numberOfTests+1.0);
+    double candidateProbabilityPosition = 1.0 / (numberOfTests+1.0);
     debugf("hopping_bestbinarysearchvalue candidate probability %f navailable %u numberoftests %u",
 	   candidateProbabilityPosition,
 	   nAvailable,
 	   numberOfTests);
     hopping_assert(candidateProbabilityPosition >= -0.01);
-    hopping_assert(candidateProbabilityPosition <= 100.01);
+    hopping_assert(candidateProbabilityPosition <=  1.01);
     candidate = hopping_selectfromdistribution(candidateProbabilityPosition,
 					       available,
 					       nAvailable);
@@ -2570,7 +2570,7 @@ hopping_selectfromdistribution(double probabilityPosition,
   debugf("hopping_selectfromdistribution %f out of %u choices", probabilityPosition, nChoices);
   hopping_assert(nChoices > 0);
   hopping_assert(probabilityPosition > -0.01);
-  hopping_assert(probabilityPosition < 100.01);
+  hopping_assert(probabilityPosition <  1.01);
   
   //
   // Calculate the sum of all probabilities for the given
@@ -2591,13 +2591,13 @@ hopping_selectfromdistribution(double probabilityPosition,
   
   debugf("hopping_selectfromdistribution probability sum = %f", probabilitySum);
   hopping_assert(probabilitySum > -0.01);
-  hopping_assert(probabilitySum < 100.01);
+  hopping_assert(probabilitySum <  1.01);
   
   //
-  // Normalize the values so that probabilitySum is 100.0.
+  // Normalize the values so that probabilitySum is 1.0
   //
   
-  normalizationFactor = 100.0 / probabilitySum;
+  normalizationFactor = 1.0 / probabilitySum;
   hopping_assert(normalizationFactor >= 1.00);
   
   //
