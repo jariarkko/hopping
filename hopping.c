@@ -1931,7 +1931,7 @@ hopping_retransmitactiveprobes(int sd,
 					destinationAddress,
 					sourceAddress,
 					probe);
-	  probe->response = hopping_responseType_noResponse;
+	  probe->responseType = hopping_responseType_noResponse;
 	  
 	}
       }
