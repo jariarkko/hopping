@@ -111,7 +111,7 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 
 #define HOPPING_DISTRIBUTION_VERY_UNLIKELY		 0.050 /* % */
 #define HOPPING_DISTRIBUTION_REMAINDER_LIKELY		 0.100 /* % */
-#define HOPPING_DISTRIBUTION_ABIT_LIKELY		 0.80 /* % */
+#define HOPPING_DISTRIBUTION_ABIT_LIKELY		 0.650 /* % */
 #define HOPPING_DISTRIBUTION_SEMI_A_LIKELY		 1.000 /* % */
 #define HOPPING_DISTRIBUTION_SEMI_B_LIKELY		 3.000 /* % */
 #define HOPPING_DISTRIBUTION_SEMI_C_LIKELY		 5.000 /* % */
