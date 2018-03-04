@@ -1878,8 +1878,7 @@ hopping_retransmitactiveprobes(int sd,
     if (probe->used &&
 	!probe->responded &&
 	probe->nextRetransmission == 0 &&
-	probe->responseType != hopping_responseType_noResponse &&
-	probesSent < maxProbes) {
+	probe->responseType != hopping_responseType_noResponse) {
       
       //
       // This probe has not seen an answer yet, nor is there an ongoing
@@ -1906,7 +1905,8 @@ hopping_retransmitactiveprobes(int sd,
 	if (probe->newProbeSentInsteadOfRetransmission == 0&&
 	    !preferRetransmissionsOverNewProbes &&
 	    hopping_probesnotyetsentinrange(hopsMinInclusive,hopsMaxInclusive) &&
-	    hopping_shouldcontinuesending()) {
+	    hopping_shouldcontinuesending() &&
+	    probesSent < maxProbes) {
 	  
 	  //
 	  // There are more useful new probes to send. Send one.
@@ -1941,7 +1941,8 @@ hopping_retransmitactiveprobes(int sd,
 	  
 	  continue;
 	  
-	} else if (triesSoFar >= maxTries) {
+	} else if (triesSoFar >= maxTries ||
+		   probesSent >= maxProbes) {
 	  
 	  //
 	  // Bailing out, have attempted to send too many
