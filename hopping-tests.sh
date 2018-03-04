@@ -17,7 +17,7 @@ do
     rm -f $RESULTFILE 2> /dev/null
     touch $RESULTFILE
     
-    echo "# HOPS	SEQ	RND	BIN	BIN+LC" >> $RESULTFILE
+    echo "# HOPS	SEQ	RND	BIN	BIN+LC	BIN+LC+PD" >> $RESULTFILE
 
     for item in `cat $DESTINATIONSFILE`
     do
@@ -31,15 +31,21 @@ do
 	echo -n "$count	" >> $RESULTFILE
 
 	# reversesequential
-	for choice in sequential random binarysearch binarysearch-likelycandidate
+	for choice in sequential random binarysearch binarysearch-likelycandidate binarysearch-likelycandidate-probability-distribution
 	do
 	    if [ "$choice" = "binarysearch-likelycandidate" ]
 	    then
 		algo=binarysearch
-		options="-likely-candidates"
+		options="-likely-candidates -plain-distribution"
 	    else
-		algo=$choice
-		options="-no-likely-candidates"
+		if [ "$choice" = binarysearch-likelycandidate-probability-distribution ]
+		then
+		    algo=binarysearch
+		    options="-likely-candidates -probabilistic-distribution"
+		else
+		    algo=$choice
+		    options="-no-likely-candidates -plain-distribution"
+		fi
 	    fi
 	    cmd="./hopping -quiet -machine-readable $options -algorithm $algo -parallel $para $destination"
 	    # echo "$cmd ..." 2> /dev/stderr	
