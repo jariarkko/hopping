@@ -95,7 +95,7 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
         "random, sequential, reversesequential, or binarysearch"
 
 #define HOPPING_MAX_PROBES			        256
-#define HOPPING_POLL_FREQUENCY				100
+#define HOPPING_POLL_FREQUENCY				5
 #define HOPPING_POLL_SLEEP_US				((1000 * 1000) /              \
                                        			  HOPPING_POLL_FREQUENCY)
 #define HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US	(500 * 1000)
@@ -1314,6 +1314,7 @@ hopping_receivepacket(int sd,
   
   FD_ZERO(&reads);
   FD_SET(sd,&reads);
+  debugf("going into select for %lu s %lu us", timeout.tv_sec, timeout.tv_usec);
   selres = select(1, &reads, 0, 0, &timeout);
   
   //
@@ -1321,7 +1322,7 @@ hopping_receivepacket(int sd,
   // (or timeout, in any case, check if there
   // is something to receive).
   //
-  
+
   bytes = recvfrom(sd,
 		   packet,
 		   sizeof(packet),
