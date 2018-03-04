@@ -2847,9 +2847,15 @@ hopping_reportBriefProbeStatusAux(struct hopping_probe* probe) {
 	 probe->id,
 	 probe->hops,
 	 hopping_responseTypeToString(probe->responseType));
+  if (probe->newProbeSentInsteadOfRetransmission != 0) {
+    printf(" sent probe #%u instead of retransmit", probe->newProbeSentInsteadOfRetransmission->id);
+  }
+  printf(" ");
   hopping_reportrelativetime(&probe->sentTime,&now,"sent","ago");
-  if (!hopping_timeisless(&probe->initialTimeout,&now))
+  if (!hopping_timeisless(&probe->initialTimeout,&now)) {
+    printf(" ");
     hopping_reportrelativetime(&now,&probe->initialTimeout,"timeout","from now");
+  }
   printf("\n");
 }
 
