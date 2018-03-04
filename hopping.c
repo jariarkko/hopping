@@ -425,6 +425,8 @@ static unsigned char hopsMaxInclusive = 255;
 // Prototype definitions of functions ------------------------------------
 //
 
+static unsigned int
+hopping_waitingforresponses(void);
 static void
 hopping_reportBriefConclusion(void);
 static struct hopping_probe*
@@ -1727,12 +1729,25 @@ hopping_probesnotyetsentinrange(unsigned char minTtlValue,
 //
 
 static int
-hopping_shouldcontinue() {
+hopping_shouldcontinuesending() {
   if (interrupt) return(0);
   if (probesSent >= maxProbes) return(0);
   if (hopsMinInclusive == hopsMaxInclusive) return(0);
   if (!hopping_probesnotyetsentinrange(hopsMinInclusive,hopsMaxInclusive)) return(0);
   return(1);
+}
+
+//
+// Can and should we continue the probing or waiting for responses to
+// the probes already sent?
+//
+
+static int
+hopping_shouldcontinuesendingorwaiting() {
+  if (interrupt) return(0);
+  if (hopsMinInclusive == hopsMaxInclusive) return(0);
+  if (hopping_waitingforresponses() > 0) return(1);
+  return(hopping_shouldcontinuesending());
 }
 
 //
@@ -1852,7 +1867,7 @@ hopping_retransmitactiveprobes(int sd,
 	if (probe->newProbeSentInsteadOfRetransmission == 0&&
 	    !preferRetransmissionsOverNewProbes &&
 	    hopping_probesnotyetsentinrange(hopsMinInclusive,hopsMaxInclusive) &&
-	    hopping_shouldcontinue()) {
+	    hopping_shouldcontinuesending()) {
 	  
 	  //
 	  // There are more useful new probes to send. Send one.
@@ -2290,7 +2305,7 @@ hopping_sendprobes(int sd,
   //
   
   if (hopping_bucket_cantakeontask() &&
-      hopping_shouldcontinue()) {
+      hopping_shouldcontinuesending()) {
     
     struct hopping_probe* probe =
       hopping_sendprobe(sd,destinationAddress,sourceAddress,1);
@@ -2357,8 +2372,8 @@ hopping_probingprocess(int sd,
   // Loop
   //
 
-  while (hopping_shouldcontinue()) {
-
+  while (hopping_shouldcontinuesendingorwaiting()) {
+    
     struct ip responseToIpHdr;
     struct icmp responseToIcmpHdr;
     int firstReception = 1;
@@ -2382,7 +2397,7 @@ hopping_probingprocess(int sd,
 							 &receivedPacket,
 							 firstReception,
 							 (hopping_bucket_cantakeontask() &&
-							  hopping_shouldcontinue()))) > 0) {
+							  hopping_shouldcontinuesendingorwaiting()))) > 0) {
       
       debugf("received a packet of %u bytes", receivedPacketLength);
       
@@ -2706,6 +2721,28 @@ hopping_unreachableresponses() {
     if (probe->used &&
 	probe->responded &&
 	probe->responseType == hopping_responseType_destinationUnreachable) {
+      count++;
+    }
+  }
+  
+  return(count);
+}
+
+//
+// How many probes are we still waiting for an answer to?
+//
+
+static unsigned int
+hopping_waitingforresponses() {
+
+  unsigned int count = 0;
+  unsigned int id;
+  
+  for (id = 0; id < HOPPING_MAX_PROBES; id++) {
+    struct hopping_probe* probe = &probes[id];
+    if (probe->used &&
+	!probe->responded &&
+	probe->responseType != hopping_responseType_noResponse) {
       count++;
     }
   }
