@@ -100,7 +100,7 @@ do
     echo "set xlabel 'Hops'" >> $CMDFILE
     echo "set ylabel 'Probes'" >> $CMDFILE
     echo "unset label" >> $CMDFILE
-    echo "plot '$DATAFILE' u 1:2 w lp lw 2 t 'SEQ', '$DATAFILE' u 1:3 w lp lw 2 t 'RND', '$DATAFILE' u 1:4 w lp lw 2 t 'BIN', '$DATAFILE' u 1:5 w lp lw 2 t 'BINL'" >> $CMDFILE
+    echo "plot '$DATAFILE' u 1:2 w lp lw 2 t 'SEQ', '$DATAFILE' u 1:3 w lp lw 2 t 'RND', '$DATAFILE' u 1:4 w lp lw 2 t 'BIN', '$DATAFILE' u 1:5 w lp lw 2 t 'BINL', '$DATAFILE' u 1:6 w lp lw 2 t 'BINP'" >> $CMDFILE
     
     echo ''
     echo '**** Running gnuplot for '$para'-parallel'
