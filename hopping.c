@@ -397,6 +397,7 @@ static int machineReadable = 0;
 static unsigned int startTtl = 1;
 static unsigned int maxTtl = 255;
 static unsigned int maxProbes = 50;
+static unsigned int maxWait = 30;
 static unsigned int maxTries = 3;
 static unsigned int parallel = 1;
 static unsigned int probePacing = 0;
@@ -471,7 +472,7 @@ hopping_selectfromdistribution(double probabilityPosition,
 			       unsigned int nChoices);
 static void
 hopping_reportBriefProbeStatusAux(struct hopping_probe* prob);
-static unsigned long
+static unsigned long long
 hopping_timediffinusecs(struct timeval* later,
 			struct timeval* earlier);
 static void
@@ -613,7 +614,7 @@ hopping_fillwithstring(char* buffer,
 // Time comparisons
 //
 
-static unsigned long
+static int
 hopping_timeisless(struct timeval* earlier,
 		   struct timeval* later) {
 
@@ -636,7 +637,7 @@ hopping_reportrelativetime(struct timeval* earlier,
 			   const char* string1,
 			   const char* string2) {
 
-  unsigned long diff;
+  unsigned long long diff;
   hopping_assert(hopping_timeisless(earlier,later));
   diff = hopping_timediffinusecs(later,earlier);
   printf("%s %.1f ms %s",
@@ -650,7 +651,7 @@ hopping_reportrelativetime(struct timeval* earlier,
 // Time subtraction
 //
 
-static unsigned long
+static unsigned long long
 hopping_timediffinusecs(struct timeval* later,
 			struct timeval* earlier) {
   
@@ -666,7 +667,7 @@ hopping_timediffinusecs(struct timeval* later,
     }
     return(later->tv_usec - earlier->tv_usec);
   } else {
-    unsigned long result = 1000 * 1000 * (later->tv_sec - earlier->tv_sec);
+    unsigned long long result = 1000 * 1000 * (later->tv_sec - earlier->tv_sec);
     result += (1000*1000) - earlier->tv_usec;
     result += later->tv_usec;
     return(result);
@@ -675,9 +676,9 @@ hopping_timediffinusecs(struct timeval* later,
 
 static void
 hopping_timeadd(struct timeval* base,
-		unsigned long us,
+		unsigned long long us,
 		struct timeval* result) {
-  unsigned long totalUs = base->tv_usec + us;
+  unsigned long long totalUs = base->tv_usec + us;
   hopping_assert(result != 0);
   result->tv_sec = base->tv_sec + totalUs / (1000 * 1000);
   result->tv_usec = base->tv_usec + totalUs % (1000 * 1000);
@@ -752,10 +753,10 @@ hopping_newprobe(hopping_idtype id,
 		    HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US,
 		    &probe->initialTimeout);
   } else {
-    unsigned long prevTimeout =
+    unsigned long long prevTimeout =
       hopping_timediffinusecs(&previousProbe->initialTimeout,
 			      &previousProbe->sentTime);
-    unsigned long newTimeout =
+    unsigned long long newTimeout =
       prevTimeout * HOPPING_RETRANSMISSION_BACKOFF_FACTOR;
     if (newTimeout > HOPPING_MAX_RETRANSMISSION_TIMEOUT_US)
       newTimeout = HOPPING_MAX_RETRANSMISSION_TIMEOUT_US;
@@ -1904,8 +1905,8 @@ hopping_retransmitactiveprobes(int sd,
 	  // There are more useful new probes to send. Send one.
 	  //
 	  
-	  unsigned long prevTimeout;
-	  unsigned long newTimeout;
+	  unsigned long long prevTimeout;
+	  unsigned long long newTimeout;
 	  
 	  debugf("preferring new probe over retransmission of probe id %u ttl %u",
 		 probe->id, probe->hops);
@@ -3216,15 +3217,23 @@ main(int argc,
       if (maxTtl < 1)
 	fatalf("Cannot set -maxttl to a value less than 1");
       argc--; argv++;
-
+      
     } else if (strcmp(argv[0],"-maxprobes") == 0 && argc > 1 && isdigit(argv[1][0])) {
-
+      
       maxProbes = atoi(argv[1]);
       debugf("maxProbes set to %u", maxProbes);
       if (maxProbes < 1)
 	fatalf("Cannot set -maxprobes to a value less than 1");
       argc--; argv++;
-
+      
+    } else if (strcmp(argv[0],"-maxwait") == 0 && argc > 1 && isdigit(argv[1][0])) {
+      
+      maxWait = atoi(argv[1]);
+      debugf("maxWait set to %u", maxProbes);
+      if (maxWait < 1)
+	fatalf("Cannot set -maxwait to a value less than 1");
+      argc--; argv++;
+      
     } else if (strcmp(argv[0],"-maxtries") == 0 && argc > 1 && isdigit(argv[1][0])) {
       
       maxTries = atoi(argv[1]);

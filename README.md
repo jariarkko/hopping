@@ -78,6 +78,10 @@ Sets the software to avoid TTL values above n. Default is 255, the theoretical l
 
 Sets the maximum number of probes to use before the software stops, even if it has not found the exact number of hops to the destination. The default is 50.
 
+    -max-wait n
+
+Sets the maximum waiting time (in seconds) before the software stops. Default is 30.
+
     -no-parallel
     -parallel n
 
