@@ -1780,7 +1780,7 @@ hopping_shouldcontinuesendingorwaiting() {
   if (hopping_waitingforresponses() > 0) return(1);
   
   hopping_getcurrenttime(&now);
-  if (startTime.tv_sec + maxWait > now.tv_sec) return(0);
+  if (startTime.tv_sec + maxWait < now.tv_sec) return(0);
   
   return(hopping_shouldcontinuesending());
 }
