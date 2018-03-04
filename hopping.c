@@ -155,7 +155,8 @@ hopping_reportBriefConclusion(void);
 static struct hopping_probe*
 hopping_sendprobe(int sd,
 		  struct sockaddr_in* destinationAddress,
-		  struct sockaddr_in* sourceAddress);
+		  struct sockaddr_in* sourceAddress,
+		  int inbucket);
 static void
 hopping_sendprobeaux(int sd,
 		     struct sockaddr_in* destinationAddress,
@@ -1560,7 +1561,7 @@ hopping_retransmitactiveprobes(int sd,
 	  debugf("preferring new probe over retransmission of probe id %u ttl %u",
 		 probe->id, probe->hops);
 	  probe->newProbeSentInsteadOfRetransmission =
-	    hopping_sendprobe(sd,destinationAddress,sourceAddress);
+	    hopping_sendprobe(sd,destinationAddress,sourceAddress,0);
 	  
 	  //
 	  // Move over to the next probe
@@ -1774,7 +1775,8 @@ hopping_readjusttolearnedrange(int fromthetop) {
 static struct hopping_probe*
 hopping_sendprobe(int sd,
 		  struct sockaddr_in* destinationAddress,
-		  struct sockaddr_in* sourceAddress) {
+		  struct sockaddr_in* sourceAddress,
+		  int inbucket) {
   
   struct hopping_probe* probe;
   unsigned int expectedLen;
@@ -1883,14 +1885,14 @@ hopping_sendprobe(int sd,
       currentTtl = hopping_bestinitialotherguess(hopsMinInclusive,
 						 hopsMaxInclusive,
 						 hopping_thereisnoprobe_ttl,
-						 bucket);
+						 inbucket ? bucket : 1);
       
     } else {
       
       currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
 						 hopsMaxInclusive,
 						 hopping_thereisnoprobe_ttl,
-						 bucket);
+						 inbucket ? bucket : 1);
       
     }
     break;
@@ -1947,7 +1949,7 @@ hopping_sendprobes(int sd,
       hopping_shouldcontinue()) {
     
     struct hopping_probe* probe =
-      hopping_sendprobe(sd,destinationAddress,sourceAddress);
+      hopping_sendprobe(sd,destinationAddress,sourceAddress,1);
     hopping_bucket_taketask();
     
   }
