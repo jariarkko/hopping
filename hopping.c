@@ -116,7 +116,6 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 #define HOPPING_DISTRIBUTION_SEMI_B_LIKELY		 3.000000 /* % */
 #define HOPPING_DISTRIBUTION_SEMI_C_LIKELY		 5.000000 /* % */
 #define HOPPING_DISTRIBUTION_MOST_LIKELY		 9.910000 /* % */
-.00
 
 float hopsprobabilitydistribution[256] = {
   /*  0 */ HOPPING_DISTRIBUTION_VERY_UNLIKELY,
