@@ -98,6 +98,11 @@ Sets the algorithms to adjust random or sequential ranges based on what is learn
 
 Sets the binary search to start either from the middle of the theoretical range (TTL 128) or from a value that has been determined to be a likely path length for general Internet destinations. A good quess will speed up the search process. The default is that the good guesses are in use.
 
+    -retransmit-priority
+    -new-probe-priority
+
+This setting controls whether probes that do not get answered should be retransmitted when the alternative is to send new probes instead. If a new probe can be sent that would potentially bring useful information, then it is sent with the same retransmission parameters (exponential back-off timeout etc) than the retransmission would have been sent as. The default is preference of new probes over retransmission.
+
     -maxtries n
 
 Set the maximum number of tries for one hop before giving up if there no replies or even errors coming back. The default is 3.

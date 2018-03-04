@@ -72,6 +72,7 @@ struct hopping_probe {
   unsigned char hops;
   struct hopping_probe* previousTransmission;
   struct hopping_probe* nextRetransmission;
+  struct hopping_probe* newProbeSentInsteadOfRetransmission;
   unsigned int probeLength;
   struct timeval sentTime;
   struct timeval initialTimeout;
@@ -105,7 +106,7 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 #define HOPPING_N_TYPICAL_HOP_COUNT_TRIES		4
 
 //
-// Variables ------------------------------------------------------------
+// Other Variables --------------------------------------------------------
 //
 
 const char* testDestination = "www.google.com";
@@ -124,12 +125,18 @@ static unsigned int maxProbes = 50;
 static unsigned int maxTries = 3;
 static unsigned int parallel = 1;
 static unsigned int probePacing = 0;
+static int preferRetransmissionsOverNewProbes = 0;
 static unsigned int likelyCandidates = 1;
-static unsigned int bucket = 0;
-static int interrupt = 0;
 static unsigned int icmpDataLength = 0;
 static enum hopping_algorithms algorithm = hopping_algorithms_binarysearch;
 static int readjust = 1;
+
+//
+// Other Variables --------------------------------------------------------
+//
+
+static unsigned int bucket = 0;
+static int interrupt = 0;
 static struct hopping_probe probes[HOPPING_MAX_PROBES];
 static unsigned int probesSent = 0;
 static unsigned char currentTtl = 1;
@@ -145,12 +152,16 @@ static unsigned char hopsMaxInclusive = 255;
 
 static void
 hopping_reportBriefConclusion(void);
-static void
+static struct hopping_probe*
 hopping_sendprobe(int sd,
 		  struct sockaddr_in* destinationAddress,
-		  struct sockaddr_in* sourceAddress,
-		  unsigned int expectedLen,
-		  struct hopping_probe* probe);
+		  struct sockaddr_in* sourceAddress);
+static void
+hopping_sendprobeaux(int sd,
+		     struct sockaddr_in* destinationAddress,
+		     struct sockaddr_in* sourceAddress,
+		     unsigned int expectedLen,
+		     struct hopping_probe* probe);
 static void
 hopping_getcurrenttime(struct timeval* result);
 static void
@@ -415,6 +426,8 @@ hopping_newprobe(hopping_idtype id,
   // Figure out if this is a retransmission of a previous probe.
   
   probe->nextRetransmission = 0;
+  probe->newProbeSentInsteadOfRetransmission = 0;
+  
   if (previousProbe == 0) {
     probe->previousTransmission = 0;
     hopping_timeadd(&probe->sentTime,
@@ -438,8 +451,7 @@ hopping_newprobe(hopping_idtype id,
   debugf("registered a probe for id %u, ttl %u", id, hops);
   
   probesSent++;
-
-  hopping_bucket_taketask();
+  
   return(probe);
 }
 
@@ -1451,11 +1463,11 @@ hopping_retransmitactiveprobe(int sd,
   // Send it
   //
   
-  hopping_sendprobe(sd,
-		    destinationAddress,
-		    sourceAddress,
-		    expectedLen,
-		    newProbe);
+  hopping_sendprobeaux(sd,
+		       destinationAddress,
+		       sourceAddress,
+		       expectedLen,
+		       newProbe);
   
   //
   // Report progress on screen
@@ -1523,23 +1535,46 @@ hopping_retransmitactiveprobes(int sd,
       if (hopping_timeisless(&probe->initialTimeout,&now)) {
 	
 	//
-	// Yes. Timeout has passed. But have we sent too many retries
-	// already?
+	// Yes. Timeout has passed. But should we retranmsit or rather
+	// send a new probe (if an additional new probe would bring
+	// new information)?
 	//
-
+	// And have we sent too many retries already?
+	//
+	
 	unsigned int triesSoFar = hopping_retries(probe);
 	debugf("Considering new retransmission of probe TTL %u, triesSoFar = %u, maxTries = %u",
 	       probe->hops,
 	       triesSoFar,
 	       maxTries);
 	
-	if (triesSoFar >= maxTries) {
+	if (probe->newProbeSentInsteadOfRetransmission == 0&&
+	    !preferRetransmissionsOverNewProbes &&
+	    hopping_probesnotyetsentinrange(hopsMinInclusive,hopsMaxInclusive) &&
+	    hopping_shouldcontinue()) {
+	  
+	  //
+	  // There are more useful new probes to send. Send one.
+	  //
+	  
+	  debugf("preferring new probe over retransmission of probe id %u ttl %u",
+		 probe->id, probe->hops);
+	  probe->newProbeSentInsteadOfRetransmission =
+	    hopping_sendprobe(sd,destinationAddress,sourceAddress);
+	  
+	  //
+	  // Move over to the next probe
+	  //
+	  
+	  continue;
+	  
+	} else if (triesSoFar >= maxTries) {
 	  
 	  //
 	  // Bailing out, have attempted to send too many
 	  // packets with this TTL already.
 	  //
-
+	  
 	  debugf("bailout, about to call reportprogress");
 	  hopping_reportprogress_noresponse(probe->id,probe->hops);
 	  debugf("bailout, about to call astimedout");
@@ -1573,44 +1608,44 @@ hopping_retransmitactiveprobes(int sd,
 //
 
 static void
-hopping_sendprobe(int sd,
-		  struct sockaddr_in* destinationAddress,
-		  struct sockaddr_in* sourceAddress,
-		  unsigned int expectedLen,
-		  struct hopping_probe* probe) {
+hopping_sendprobeaux(int sd,
+		     struct sockaddr_in* destinationAddress,
+		     struct sockaddr_in* sourceAddress,
+		     unsigned int expectedLen,
+		     struct hopping_probe* probe) {
   
-    unsigned int packetLength;
-    char* packet;
-    
-    hopping_assert(destinationAddress != 0);
-    hopping_assert(sourceAddress != 0);
-    hopping_assert(probe != 0);
-    
-    //
-    // Create a packet
-    //
-    
-    hopping_constructicmp4packet(sourceAddress,
-				 destinationAddress,
-				 probe->id,
-				 probe->hops,
-				 icmpDataLength,
-				 &packet,
-				 &packetLength);
-    if (expectedLen != packetLength) {
-      fatalf("expected and resulting packet lengths do not agree (%u vs. %u)",
-	     expectedLen, packetLength);
-    }
-    
-    //
-    // Send the packet
-    //
-    
-    hopping_sendpacket(sd,
-		       packet,
-		       packetLength,
-		       (struct sockaddr *)destinationAddress,
-		       sizeof (struct sockaddr));
+  unsigned int packetLength;
+  char* packet;
+  
+  hopping_assert(destinationAddress != 0);
+  hopping_assert(sourceAddress != 0);
+  hopping_assert(probe != 0);
+  
+  //
+  // Create a packet
+  //
+  
+  hopping_constructicmp4packet(sourceAddress,
+			       destinationAddress,
+			       probe->id,
+			       probe->hops,
+			       icmpDataLength,
+			       &packet,
+			       &packetLength);
+  if (expectedLen != packetLength) {
+    fatalf("expected and resulting packet lengths do not agree (%u vs. %u)",
+	   expectedLen, packetLength);
+  }
+  
+  //
+  // Send the packet
+  //
+  
+  hopping_sendpacket(sd,
+		     packet,
+		     packetLength,
+		     (struct sockaddr *)destinationAddress,
+		     sizeof (struct sockaddr));
 }
 
 //
@@ -1733,6 +1768,169 @@ hopping_readjusttolearnedrange(int fromthetop) {
 }
 
 //
+// Create send one new probe
+//
+
+static struct hopping_probe*
+hopping_sendprobe(int sd,
+		  struct sockaddr_in* destinationAddress,
+		  struct sockaddr_in* sourceAddress) {
+  
+  struct hopping_probe* probe;
+  unsigned int expectedLen;
+  hopping_idtype id;
+  
+  //
+  // Depending on algorithm, adjust behaviour
+  //
+  
+  switch (algorithm) {
+    
+  case hopping_algorithms_random:
+    
+    debugf("before random selection, min = %u and max = %u",
+	   hopsMinInclusive, hopsMaxInclusive);
+    
+    do {
+      
+      //
+      // Random pick
+      //
+      
+      currentTtl = (unsigned char)(((unsigned int)hopsMinInclusive +
+				    (rand() % (((unsigned int)hopsMaxInclusive) - ((unsigned int)hopsMinInclusive) + 1))));
+      
+      //
+      // If we've already sent probes on all TTLs in the current possible range of
+      // TTLs, then just pick this random number and go with it!
+      //
+      
+      if (hopping_countprobes_notsentinrange(hopsMinInclusive,hopsMaxInclusive)) break;
+      
+      //
+      // If we've already sent a probe with this TTL earlier, pick another
+      //
+      
+      if (hopping_thereisprobe_ttl(currentTtl)) continue;
+      
+    } while (1);
+    
+    debugf("selected a random ttl %u in range %u..%u", currentTtl, hopsMinInclusive, hopsMaxInclusive);
+    break;
+    
+  case hopping_algorithms_sequential:
+    
+    //
+    // Increase by one (unless this is the first probe
+    //
+    
+    if (probesSent > 0 && currentTtl < 255) currentTtl++;
+    
+    //
+    // If value falls outside currently learned range, readjust
+    //
+    
+    if (currentTtl < hopsMinInclusive ||
+	currentTtl > hopsMaxInclusive) {
+      
+      currentTtl = hopping_readjusttolearnedrange(0);
+      
+    }
+    
+    //
+    // Done
+    //
+    
+    debugf("selected one larger ttl %u", currentTtl);
+    break;
+    
+  case hopping_algorithms_reversesequential:
+    
+    //
+    // Decrease by one (unless this is the first probe
+    //
+    
+    if (probesSent > 0 && currentTtl > 0) currentTtl--;
+    
+    //
+    // If value falls outside currently learned range, readjust
+    //
+    
+    if (currentTtl < hopsMinInclusive ||
+	currentTtl > hopsMaxInclusive) {
+      
+      currentTtl = hopping_readjusttolearnedrange(1);
+      
+    }
+    
+    //
+    // Done
+    //
+    
+    debugf("selected one smaller ttl %u", currentTtl);
+    break;
+    
+  case hopping_algorithms_binarysearch:
+    
+    if (likelyCandidates && probesSent == 0) {
+      
+      currentTtl = hopping_bestinitialguess(hopsMinInclusive,hopsMaxInclusive);
+      
+    } else if (likelyCandidates &&
+	       hopping_responses() == 0 &&
+	       probesSent < HOPPING_N_TYPICAL_HOP_COUNT_TRIES) {
+      
+      currentTtl = hopping_bestinitialotherguess(hopsMinInclusive,
+						 hopsMaxInclusive,
+						 hopping_thereisnoprobe_ttl,
+						 bucket);
+      
+    } else {
+      
+      currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
+						 hopsMaxInclusive,
+						 hopping_thereisnoprobe_ttl,
+						 bucket);
+      
+    }
+    break;
+    
+  default:
+    fatalf("invalid internal algorithm identifier");
+      
+  }
+  
+  //
+  // Create a packet and send it
+  //
+  
+  id = hopping_getnewid(currentTtl);
+  expectedLen = HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + icmpDataLength;
+  probe = hopping_newprobe(id,currentTtl,expectedLen,0);
+  if (probe == 0) {
+    fatalf("cannot allocate a new probe entry");
+  }
+  
+  hopping_sendprobeaux(sd,
+		       destinationAddress,
+		       sourceAddress,
+		       expectedLen,
+		       probe);
+  
+  //
+  // Report progress on screen
+  //
+  
+  hopping_reportprogress_sent(id,probe->hops,0);
+
+  //
+  // Done. Return the probe.
+  //
+  
+  return(probe);
+}
+
+//
 // Send as many probes as we are allowed to send
 //
 
@@ -1748,155 +1946,12 @@ hopping_sendprobes(int sd,
   if (hopping_bucket_cantakeontask() &&
       hopping_shouldcontinue()) {
     
-    struct hopping_probe* probe;
-    unsigned int expectedLen;
-    hopping_idtype id;
-    
-    //
-    // Depending on algorithm, adjust behaviour
-    //
-    
-    switch (algorithm) {
-
-    case hopping_algorithms_random:
-      
-      debugf("before random selection, min = %u and max = %u",
-	     hopsMinInclusive, hopsMaxInclusive);
-      
-      do {
-
-	//
-	// Random pick
-	//
-	
-	currentTtl = (unsigned char)(((unsigned int)hopsMinInclusive +
-				      (rand() % (((unsigned int)hopsMaxInclusive) - ((unsigned int)hopsMinInclusive) + 1))));
-	
-	//
-	// If we've already sent probes on all TTLs in the current possible range of
-	// TTLs, then just pick this random number and go with it!
-	//
-	
-	if (hopping_countprobes_notsentinrange(hopsMinInclusive,hopsMaxInclusive)) break;
-	
-	//
-	// If we've already sent a probe with this TTL earlier, pick another
-	//
-	
-	if (hopping_thereisprobe_ttl(currentTtl)) continue;
-	
-      } while (1);
-      
-      debugf("selected a random ttl %u in range %u..%u", currentTtl, hopsMinInclusive, hopsMaxInclusive);
-      break;
-
-    case hopping_algorithms_sequential:
-      
-      //
-      // Increase by one (unless this is the first probe
-      //
-      
-      if (probesSent > 0 && currentTtl < 255) currentTtl++;
-
-      //
-      // If value falls outside currently learned range, readjust
-      //
-      
-      if (currentTtl < hopsMinInclusive ||
-	  currentTtl > hopsMaxInclusive) {
-
-	currentTtl = hopping_readjusttolearnedrange(0);
-	
-      }
-      
-      //
-      // Done
-      //
-      
-      debugf("selected one larger ttl %u", currentTtl);
-      break;
-      
-    case hopping_algorithms_reversesequential:
-      
-      //
-      // Decrease by one (unless this is the first probe
-      //
-      
-      if (probesSent > 0 && currentTtl > 0) currentTtl--;
-      
-      //
-      // If value falls outside currently learned range, readjust
-      //
-      
-      if (currentTtl < hopsMinInclusive ||
-	  currentTtl > hopsMaxInclusive) {
-	
-	currentTtl = hopping_readjusttolearnedrange(1);
-	
-      }
-
-      //
-      // Done
-      //
-      
-      debugf("selected one smaller ttl %u", currentTtl);
-      break;
-      
-    case hopping_algorithms_binarysearch:
-      
-      if (likelyCandidates && probesSent == 0) {
-	
-	currentTtl = hopping_bestinitialguess(hopsMinInclusive,hopsMaxInclusive);
-	
-      } else if (likelyCandidates &&
-		 hopping_responses() == 0 &&
-		 probesSent < HOPPING_N_TYPICAL_HOP_COUNT_TRIES) {
-	
-	currentTtl = hopping_bestinitialotherguess(hopsMinInclusive,
-						   hopsMaxInclusive,
-						   hopping_thereisnoprobe_ttl,
-						   bucket);
-	
-      } else {
-	
-	currentTtl = hopping_bestbinarysearchvalue(hopsMinInclusive,
-						   hopsMaxInclusive,
-						   hopping_thereisnoprobe_ttl,
-						   bucket);
-	
-      }
-      break;
-      
-    default:
-      fatalf("invalid internal algorithm identifier");
-      
-    }
-
-    //
-    // Create a packet and send it
-    //
-
-    id = hopping_getnewid(currentTtl);
-    expectedLen = HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN + icmpDataLength;
-    probe = hopping_newprobe(id,currentTtl,expectedLen,0);
-    if (probe == 0) {
-      fatalf("cannot allocate a new probe entry");
-    }
-    
-    hopping_sendprobe(sd,
-		      destinationAddress,
-		      sourceAddress,
-		      expectedLen,
-		      probe);
-    
-    //
-    // Report progress on screen
-    //
-    
-    hopping_reportprogress_sent(id,probe->hops,0);
+    struct hopping_probe* probe =
+      hopping_sendprobe(sd,destinationAddress,sourceAddress);
+    hopping_bucket_taketask();
     
   }
-
+  
   //
   // If there are probes whose response has not arrived and their
   // timeouts expire, send retransmissions
@@ -2640,6 +2695,14 @@ main(int argc,
     } else if (strcmp(argv[0],"-no-likely-candidates") == 0) {
 
       likelyCandidates = 0;
+
+    } else if (strcmp(argv[0],"-retransmit-priority") == 0) {
+      
+      preferRetransmissionsOverNewProbes = 1;
+      
+    } else if (strcmp(argv[0],"-new-probe-priority") == 0) {
+      
+      preferRetransmissionsOverNewProbes = 0;
       
     } else if (strcmp(argv[0],"-readjust") == 0) {
 
