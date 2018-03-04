@@ -1840,7 +1840,8 @@ hopping_retransmitactiveprobes(int sd,
     struct hopping_probe* probe = &probes[otherid];
     if (probe->used && !probe->responded &&
 	probe->nextRetransmission == 0 &&
-	probe->responseType != hopping_responseType_noResponse) {
+	probe->responseType != hopping_responseType_noResponse &&
+	probesSent < maxProbes) {
       
       //
       // This probe has not seen an answer yet, nor is there an ongoing
