@@ -4,7 +4,9 @@
 
 The "hopping" program is an efficient way to determine how many hops there are to a given destination. It is more efficient and convenient to use than traceroute.
 
-The software is under development, and subject to research on best algorithms for determining the number of hops, but the basic idea is that if you need to determine the number of hops, sequential processes such as those in traceroute may not be optimal. For instance, to find out how far facebook.com is from a current network, we can use hopping in different modes to compare their performance:
+This program is a part of the Architecture Tester (archtester) collection of tools. See https://github.com/jariarkko/archtester.
+
+The hopping software is under development, and subject to research on best algorithms for determining the number of hops, but the basic idea is that if you need to determine the number of hops, sequential processes such as those in traceroute may not be optimal. For instance, to find out how far facebook.com is from a current network, we can use hopping in different modes to compare their performance:
 
     # hopping -quiet -statistics -algorithm binarysearch facebook.com
     facebook.com (157.240.20.35) is 12 hops away and reachable
@@ -102,6 +104,11 @@ Sets the binary search to start either from the middle of the theoretical range 
     -new-probe-priority
 
 This setting controls whether probes that do not get answered should be retransmitted when the alternative is to send new probes instead. If a new probe can be sent that would potentially bring useful information, then it is sent with the same retransmission parameters (exponential back-off timeout etc) than the retransmission would have been sent as. The default is preference of new probes over retransmission.
+
+    -probabilistic-distribution
+    -plain-distribution
+
+This setting controls how binary search and other values are selected for probing. In a plain distribution, any value is equally likely. For instance, any hop count between 1 and 255 would be equally likely. In the probabilistic model, built-in knowledge of likely hop counts steers the choice to the more likely values. For instance, hop counts beyond 50 are rarely seen in the Internet, and for the most popular destinations, values in the range of up to 20 hops are more likely. The default setting is to use probabilistic distribution.
 
     -maxtries n
 

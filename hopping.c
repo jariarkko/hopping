@@ -401,6 +401,7 @@ static unsigned int parallel = 1;
 static unsigned int probePacing = 0;
 static int preferRetransmissionsOverNewProbes = 0;
 static unsigned int likelyCandidates = 1;
+static int probabilisticDistribution = 1;
 static unsigned int icmpDataLength = 0;
 static enum hopping_algorithms algorithm = hopping_algorithms_binarysearch;
 static int readjust = 1;
@@ -461,6 +462,10 @@ static void
 hopping_bucket_taketask(void);
 static void
 hopping_bucket_releasetask(void);
+static unsigned char
+hopping_selectfromdistribution(double probabilityPosition,
+			       unsigned char* choices,
+			       unsigned int nChoices);
 
 //
 // Some helper macros ----------------------------------------------------
@@ -2012,7 +2017,6 @@ hopping_bestbinarysearchvalue(unsigned char from,
   unsigned char available[256];
   unsigned int nAvailable = 0;
   unsigned int i;
-  unsigned char candidateIndex;
   unsigned char candidate;
 
   //
@@ -2047,13 +2051,39 @@ hopping_bestbinarysearchvalue(unsigned char from,
   // with three divide to four, etc.
   //
 
-  candidateIndex = nAvailable / (numberOfTests+1);
-  debugf("hopping_bestbinarysearchvalue candidate %u navailable %u numberoftests %u",
-	 candidateIndex,
-	 nAvailable,
-	 numberOfTests);
-  hopping_assert(candidateIndex < nAvailable);
-  candidate = available[candidateIndex];
+  if (probabilisticDistribution) {
+
+    //
+    // Probabilistic distribution based on likelihoods of different hop counts
+    //
+    
+    double candidateProbabilityPosition = (1.0 * nAvailable) / (numberOfTests+1.0);
+    debugf("hopping_bestbinarysearchvalue candidate probability %f navailable %u numberoftests %u",
+	   candidateProbabilityPosition,
+	   nAvailable,
+	   numberOfTests);
+    hopping_assert(candidateProbabilityPosition >= -0.01);
+    hopping_assert(candidateProbabilityPosition <= 100.01);
+    candidate = hopping_selectfromdistribution(candidateProbabilityPosition,
+					       available,
+					       nAvailable);
+    
+  } else {
+    
+    //
+    // Plain distribution based on actual numbers
+    //
+    
+    unsigned char candidateIndex = nAvailable / (numberOfTests+1);
+    debugf("hopping_bestbinarysearchvalue candidate %u navailable %u numberoftests %u",
+	   candidateIndex,
+	   nAvailable,
+	   numberOfTests);
+    hopping_assert(candidateIndex < nAvailable);
+    candidate = available[candidateIndex];
+    
+  }
+  
   debugf("binary search picks candidate %u from a pool of %u available candidates (number of tests = %u)",
 	 candidate, nAvailable, numberOfTests);
   
@@ -2514,6 +2544,82 @@ hopping_initdistribution() {
 
   hopping_assert(sum >=  99.99 &&
 		 sum <= 100.01);
+}
+
+//
+// Choose a candidate among a set of hop count choices (choices and
+// nChoices), such that the given probability position
+// (probabilityPosition, e.g., 0.50) most closely matches the
+// likelihood of the given choices. For instance, if there are three
+// choices, and their probability as an Internet hop count is 1%, 1%,
+// and 50%, then the total probabilities within the set of three is
+// 52%. A probability position of 0.01 would result in choosing the
+// first element, and a probability position of 0.33 would result in
+// choosing the third element.
+//
+
+static unsigned char
+hopping_selectfromdistribution(double probabilityPosition,
+			       unsigned char* choices,
+			       unsigned int nChoices) {
+  double normalizationFactor;
+  double probabilitySum;
+  double probabilityNow;
+  unsigned int i;
+
+  debugf("hopping_selectfromdistribution %f out of %u choices", probabilityPosition, nChoices);
+  hopping_assert(nChoices > 0);
+  hopping_assert(probabilityPosition > -0.01);
+  hopping_assert(probabilityPosition < 100.01);
+  
+  //
+  // Calculate the sum of all probabilities for the given
+  // hop count choices.
+  //
+  
+  probabilitySum = 0.0;
+  for (i = 0; i < nChoices; i++) {
+    unsigned char choice = choices[i];
+    float probability = hopsprobabilitydistribution[choice];
+    hopping_assert(choice >= 0 && choice <= 255);
+    probabilitySum += probability;
+  }
+
+  //
+  // Debugs
+  //
+  
+  debugf("hopping_selectfromdistribution probability sum = %f", probabilitySum);
+  hopping_assert(probabilitySum > -0.01);
+  hopping_assert(probabilitySum < 100.01);
+  
+  //
+  // Normalize the values so that probabilitySum is 100.0.
+  //
+  
+  normalizationFactor = 100.0 / probabilitySum;
+  hopping_assert(normalizationFactor >= 1.00);
+  
+  //
+  // Go through the choices again and pick the one that
+  // first matches the given probability position
+  //
+
+  probabilityNow = 0.0;
+  for (i = 0; i < nChoices; i++) {
+    unsigned char choice = choices[i];
+    float probability = normalizationFactor * hopsprobabilitydistribution[choice];
+    hopping_assert(choice >= 0 && choice <= 255);
+    probabilityNow += probability;
+    if (probabilityNow >= probabilityPosition ||
+	i == nChoices - 1) {
+      debugf("hopping_selectfromdistribution: choosing the %uth choice %u since probability %f reaches expected %f",
+	     i, choice, probabilityNow, probabilityPosition);
+      return(choice);
+    }
+  }
+  
+  fatalf("hopping_selectfromdistribution: should never get here");
 }
 
 //
@@ -3036,6 +3142,14 @@ main(int argc,
     } else if (strcmp(argv[0],"-no-likely-candidates") == 0) {
 
       likelyCandidates = 0;
+
+    } else if (strcmp(argv[0],"-probabilistic-distribution") == 0) {
+
+      probabilisticDistribution = 1;
+
+    } else if (strcmp(argv[0],"-plain-distribution") == 0) {
+
+      probabilisticDistribution = 0;
 
     } else if (strcmp(argv[0],"-retransmit-priority") == 0) {
       
