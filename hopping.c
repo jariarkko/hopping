@@ -117,6 +117,8 @@ typedef int (*hopping_ttl_test_function)(unsigned char ttl);
 #define HOPPING_DISTRIBUTION_SEMI_C_LIKELY		 5.000000 /* % */
 #define HOPPING_DISTRIBUTION_MOST_LIKELY		 9.910000 /* % */
 
+// Sums below need to make up 100.00
+
 float hopsprobabilitydistribution[256] = {
   /*  0 */ HOPPING_DISTRIBUTION_VERY_UNLIKELY,
   /*  1 */ HOPPING_DISTRIBUTION_SEMI_A_LIKELY,
@@ -703,12 +705,12 @@ hopping_newprobe(hopping_idtype id,
   if (previousProbe == 0) {
     probe->previousTransmission = 0;
     hopping_timeadd(&probe->sentTime,
-			HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US,
-			&probe->initialTimeout);
+		    HOPPING_INITIAL_RETRANSMISSION_TIMEOUT_US,
+		    &probe->initialTimeout);
   } else {
     unsigned long prevTimeout =
       hopping_timediffinusecs(&previousProbe->initialTimeout,
-				  &previousProbe->sentTime);
+			      &previousProbe->sentTime);
     unsigned long newTimeout =
       prevTimeout * HOPPING_RETRANSMISSION_BACKOFF_FACTOR;
     if (newTimeout > HOPPING_MAX_RETRANSMISSION_TIMEOUT_US)
@@ -716,8 +718,8 @@ hopping_newprobe(hopping_idtype id,
     probe->previousTransmission = previousProbe;
     previousProbe->nextRetransmission = probe;
     hopping_timeadd(&probe->sentTime,
-			newTimeout,
-			&probe->initialTimeout);
+		    newTimeout,
+		    &probe->initialTimeout);
   }
   
   debugf("registered a probe for id %u, ttl %u", id, hops);
@@ -1829,10 +1831,27 @@ hopping_retransmitactiveprobes(int sd,
 	  // There are more useful new probes to send. Send one.
 	  //
 	  
+	  unsigned long prevTimeout;
+	  unsigned long newTimeout;
+	  
 	  debugf("preferring new probe over retransmission of probe id %u ttl %u",
 		 probe->id, probe->hops);
 	  probe->newProbeSentInsteadOfRetransmission =
 	    hopping_sendprobe(sd,destinationAddress,sourceAddress,0);
+
+	  //
+	  // Increase the current probe's timeout per exponential
+	  // backoff rules.
+	  //
+
+	  prevTimeout = hopping_timediffinusecs(&probe->initialTimeout,
+						&probe->sentTime);
+	  newTimeout = prevTimeout * HOPPING_RETRANSMISSION_BACKOFF_FACTOR;
+	  if (newTimeout > HOPPING_MAX_RETRANSMISSION_TIMEOUT_US)
+	    newTimeout = HOPPING_MAX_RETRANSMISSION_TIMEOUT_US;
+	  hopping_timeadd(&probe->sentTime,
+			  newTimeout,
+			  &probe->initialTimeout);
 	  
 	  //
 	  // Move over to the next probe
