@@ -1839,7 +1839,9 @@ hopping_markprobe_astimedout(struct hopping_probe* probe) {
 	 probe->id, probe->hops, probe->responseType, hopping_responseType_noResponse);
   hopping_assert(probe->responseType == hopping_responseType_stillWaiting);
   probe->responseType = hopping_responseType_noResponse;
-  if (probe->previousTransmission != 0) {
+  if (probe->previousTransmission != 0 &&
+      probe->previousTransmission->responseType != hopping_responseType_noResponse) {
+    debugf("recursing from probe %u to %u", probe->id, probe->previousTransmission->id);
     hopping_markprobe_astimedout(probe->previousTransmission);
   }
 }
