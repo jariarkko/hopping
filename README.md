@@ -51,6 +51,7 @@ Sets the debugging output on/off.
     -no-progress
     -progress
     -detailed-progress
+    -detailed-progress-and-probe-status
 
 Forces hopping to report various amounts of information about the status of the search as it works. The option -quiet is a synonym for -no-progress. The default is -progress.
 

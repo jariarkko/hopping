@@ -389,6 +389,7 @@ const char* interface = "eth0";
 static int debug = 0;
 static int progress = 1;
 static int progressDetailed = 0;
+static int progressDetailedProbeStatus = 0;
 static int conclusion = 1;
 static int briefStatistics = 1;
 static int fullStatistics = 0;
@@ -468,6 +469,13 @@ static unsigned char
 hopping_selectfromdistribution(double probabilityPosition,
 			       unsigned char* choices,
 			       unsigned int nChoices);
+static void
+hopping_reportBriefProbeStatusAux(struct hopping_probe* prob);
+static unsigned long
+hopping_timediffinusecs(struct timeval* later,
+			struct timeval* earlier);
+static void
+hopping_reportBriefProbeStatus(void);
 
 //
 // Some helper macros ----------------------------------------------------
@@ -601,6 +609,10 @@ hopping_fillwithstring(char* buffer,
   
 }
 
+//
+// Time comparisons
+//
+
 static unsigned long
 hopping_timeisless(struct timeval* earlier,
 		   struct timeval* later) {
@@ -613,6 +625,30 @@ hopping_timeisless(struct timeval* earlier,
   else if (earlier->tv_usec < later->tv_usec) return(1);
   else return(0);
 }
+
+//
+// Time printing
+//
+
+static void
+hopping_reportrelativetime(struct timeval* earlier,
+			   struct timeval* later,
+			   const char* string1,
+			   const char* string2) {
+
+  unsigned long diff;
+  hopping_assert(hopping_timeisless(earlier,later));
+  diff = hopping_timediffinusecs(later,earlier);
+  printf("%s %.1f ms %s",
+	 string1,
+	 diff / 1000.0,
+	 string2);
+  
+}
+
+//
+// Time subtraction
+//
 
 static unsigned long
 hopping_timediffinusecs(struct timeval* later,
@@ -1584,37 +1620,22 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
       
     case hopping_responseType_echoResponse:
       printf(" <--- #%u REPLY", id);
-      if (progressDetailed) {
-	hopping_reportBriefConclusion();
-      }
       break;
       
     case hopping_responseType_destinationUnreachable:
       printf(" <--- #%u UNREACH", id);
-      if (progressDetailed) {
-	hopping_reportBriefConclusion();
-      }
       break;
       
     case hopping_responseType_timeExceeded:
       printf(" <--- #%u TTL EXPIRED", id);
-      if (progressDetailed) {
-	hopping_reportBriefConclusion();
-      }
       break;
       
     case hopping_responseType_retransmissionConsidered:
       printf(" <--- #%u TIMEOUT", id);
-      if (progressDetailed) {
-	hopping_reportBriefConclusion();
-      }
       break;
       
     case hopping_responseType_noResponse:
       printf(" <--- #%u NO RESPONSE", id);
-      if (progressDetailed) {
-	hopping_reportBriefConclusion();
-      }
       break;
       
     case hopping_responseType_stillWaiting:
@@ -1625,6 +1646,13 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
       
     }
     
+    if (progressDetailed) {
+      hopping_reportBriefConclusion();
+    }
+    if (progressDetailedProbeStatus) {
+      hopping_reportBriefProbeStatus();
+    }
+      
     lastprogressreportwassentpacket = 0;
     seenprogressreport = 1;
     
@@ -2773,6 +2801,59 @@ hopping_reportBriefConclusion() {
 }
 
 //
+// Output the current state of (brief) conclusion (as much as we know)
+// from the probing process
+//
+
+static void
+hopping_reportBriefProbeStatus() {
+  unsigned int id;
+  printf("\n");
+  for (id = 0; id < HOPPING_MAX_PROBES; id++) {
+    struct hopping_probe* probe = &probes[id];
+    if (probe->used) {
+      hopping_reportBriefProbeStatusAux(probe);
+    }
+  }
+  printf("\n");
+}
+
+static const char*
+hopping_responseTypeToString(enum hopping_responseType rt) {
+  switch (rt) {
+  case hopping_responseType_stillWaiting:		return("still waiting");
+  case hopping_responseType_echoResponse:		return("echo response");
+  case hopping_responseType_destinationUnreachable:	return("destination unreachable");
+  case hopping_responseType_timeExceeded:		return("time exceeded");
+  case hopping_responseType_retransmissionConsidered:	return("retransmission considered");
+  case hopping_responseType_noResponse:			return("no response");
+  default:
+    fatalf("should not get here");
+  }
+}
+
+//
+// Output the current state of (brief) conclusion (as much as we know)
+// from the probing process
+//
+
+static void
+hopping_reportBriefProbeStatusAux(struct hopping_probe* probe) {
+  
+  struct timeval now;
+  hopping_getcurrenttime(&now);
+  
+  printf("  probe id #%u ttl %u: %s",
+	 probe->id,
+	 probe->hops,
+	 hopping_responseTypeToString(probe->responseType));
+  hopping_reportrelativetime(&probe->sentTime,&now,"sent","ago");
+  if (!hopping_timeisless(&probe->initialTimeout,&now))
+    hopping_reportrelativetime(&now,&probe->initialTimeout,"timeout","from now");
+  printf("\n");
+}
+
+//
 // Output a conclusion (as much as we know) from the
 // probing process
 //
@@ -3078,11 +3159,18 @@ main(int argc,
       
       progress = 0;
       progressDetailed = 0;
+      progressDetailedProbeStatus = 0;
       
     } else if (strcmp(argv[0],"-detailed-progress") == 0) {
       
       progress = 1;
       progressDetailed = 1;
+
+    } else if (strcmp(argv[0],"-detailed-progress-and-probe-status") == 0) {
+      
+      progress = 1;
+      progressDetailed = 1;
+      progressDetailedProbeStatus = 1;
 
     } else if (strcmp(argv[0],"-no-detailed-progress") == 0) {
       
