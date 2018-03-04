@@ -2539,9 +2539,9 @@ hopping_initdistribution() {
   for (i = 0; i < 256; i++) {
     sum += hopsprobabilitydistribution[i];
   }
-
+  
   debugf("distribution sum is %f", sum);
-
+  
   hopping_assert(sum >=  99.99 &&
 		 sum <= 100.01);
 }
@@ -2580,11 +2580,11 @@ hopping_selectfromdistribution(double probabilityPosition,
   probabilitySum = 0.0;
   for (i = 0; i < nChoices; i++) {
     unsigned char choice = choices[i];
-    float probability = hopsprobabilitydistribution[choice];
+    float probability = hopsprobabilitydistribution[choice] / 100.0;
     hopping_assert(choice >= 0 && choice <= 255);
     probabilitySum += probability;
   }
-
+  
   //
   // Debugs
   //
@@ -2608,7 +2608,7 @@ hopping_selectfromdistribution(double probabilityPosition,
   probabilityNow = 0.0;
   for (i = 0; i < nChoices; i++) {
     unsigned char choice = choices[i];
-    float probability = normalizationFactor * hopsprobabilitydistribution[choice];
+    float probability = normalizationFactor * (hopsprobabilitydistribution[choice] / 100.0);
     hopping_assert(choice >= 0 && choice <= 255);
     probabilityNow += probability;
     if (probabilityNow >= probabilityPosition ||
