@@ -421,7 +421,7 @@ static int seenprogressreport = 0;
 static int lastprogressreportwassentpacket = 0;
 static unsigned char hopsMinInclusive = 1;
 static unsigned char hopsMaxInclusive = 255;
-
+static struct timeval startTime;
 
 //
 // Prototype definitions of functions ------------------------------------
@@ -1773,9 +1773,15 @@ hopping_shouldcontinuesending() {
 
 static int
 hopping_shouldcontinuesendingorwaiting() {
+  struct timeval now;
+  
   if (interrupt) return(0);
   if (hopsMinInclusive == hopsMaxInclusive) return(0);
   if (hopping_waitingforresponses() > 0) return(1);
+  
+  hopping_getcurrenttime(&now);
+  if (startTime.tv_sec + maxWait > now.tv_sec) return(0);
+  
   return(hopping_shouldcontinuesending());
 }
 
@@ -3344,6 +3350,7 @@ main(int argc,
   signal(SIGINT, hopping_interrupt);
 
   hopping_initdistribution();
+  hopping_getcurrenttime(&startTime);
   
   hopping_runtest(startTtl,
 		  interface,
