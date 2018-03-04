@@ -1858,9 +1858,9 @@ hopping_retransmitactiveprobes(int sd,
 	  
 	  debugf("preferring new probe over retransmission of probe id %u ttl %u",
 		 probe->id, probe->hops);
+	  hopping_reportprogress_retransmissionconsidered(probe->id,probe->hops);
 	  probe->newProbeSentInsteadOfRetransmission =
 	    hopping_sendprobe(sd,destinationAddress,sourceAddress,0);
-	  hopping_reportprogress_retransmissionconsidered(probe->id,probe->hops);
 	  
 	  //
 	  // Increase the current probe's timeout per exponential
