@@ -42,6 +42,7 @@
 #define HOPPING_ICMP4_HDRLEN			 8
 #define HOPPING_ICMP_ECHOREPLY			 0
 #define HOPPING_ICMP_DEST_UNREACH		 3
+#define HOPPING_ICMP_REDIRECT			 5
 #define HOPPING_ICMP_ECHO			 8
 #define HOPPING_ICMP_TIME_EXCEEDED		11
 
@@ -63,6 +64,7 @@ enum hopping_responseType {
   hopping_responseType_stillWaiting,
   hopping_responseType_echoResponse,
   hopping_responseType_destinationUnreachable,
+  hopping_responseType_redirect,
   hopping_responseType_timeExceeded,
   hopping_responseType_retransmissionConsidered,
   hopping_responseType_noResponse
@@ -1508,6 +1510,32 @@ hopping_validatepacket(char* receivedPacket,
     debugf("DESTINATION UNREACHABLE from %s", hopping_addrtostring(&iphdr.ip_src));
     break;
     
+  case HOPPING_ICMP_REDIRECT:
+    if (ntohs(iphdr.ip_len) <
+	HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN +
+	HOPPING_IP4_HDRLEN + HOPPING_ICMP4_HDRLEN) {
+      debugf("ICMP redirect does not include enough of the original packet", ntohs(iphdr.ip_len));
+      return(0);
+    }
+    memcpy(responseToIpHdr,
+	   &receivedPacket[HOPPING_IP4_HDRLEN+HOPPING_ICMP4_HDRLEN],
+	   HOPPING_IP4_HDRLEN);
+    memcpy(responseToIcmpHdr,
+	   &receivedPacket[HOPPING_IP4_HDRLEN+HOPPING_ICMP4_HDRLEN+HOPPING_IP4_HDRLEN],
+	   HOPPING_ICMP4_HDRLEN);
+    *responseId = responseToIcmpHdr->icmp_id;
+    debugf("using inner id %u in ICMP error", *responseId);
+    if (responseToIpHdr->ip_p != IPPROTO_ICMP &&
+	responseToIcmpHdr->icmp_type != HOPPING_ICMP_ECHO) {
+      debugf("ICMP redirect includes some other packet than ICMP ECHO proto = %u icmp code = %u",
+	     responseToIpHdr->ip_p,
+	     responseToIcmpHdr->icmp_type);
+      return(0);
+    }
+    *responseType = hopping_responseType_redirect;
+    debugf("REDIRECT from %s", hopping_addrtostring(&iphdr.ip_src));
+    break;
+    
   default:
     return(0);
     
@@ -1558,6 +1586,7 @@ hopping_packetisforus(char* receivedPacket,
   //
   
   if (receivedResponseType == hopping_responseType_destinationUnreachable ||
+      receivedResponseType == hopping_responseType_redirect ||
       receivedResponseType == hopping_responseType_timeExceeded) {
     
     debugf("checking that inner packet in the ICMP error was sent by us");
@@ -1627,6 +1656,10 @@ hopping_reportprogress_received(enum hopping_responseType responseType,
       
     case hopping_responseType_destinationUnreachable:
       printf(" <--- #%u UNREACH", id);
+      break;
+      
+    case hopping_responseType_redirect:
+      printf(" <--- #%u REDIRECT", id);
       break;
       
     case hopping_responseType_timeExceeded:
@@ -2835,6 +2868,7 @@ hopping_responseTypeToString(enum hopping_responseType rt) {
   case hopping_responseType_stillWaiting:		return("still waiting");
   case hopping_responseType_echoResponse:		return("echo response");
   case hopping_responseType_destinationUnreachable:	return("destination unreachable");
+  case hopping_responseType_redirect:			return("redirect");
   case hopping_responseType_timeExceeded:		return("time exceeded");
   case hopping_responseType_retransmissionConsidered:	return("retransmission considered");
   case hopping_responseType_noResponse:			return("no response");
@@ -2985,6 +3019,7 @@ hopping_reportStatsFull() {
   unsigned int nResponses = 0;
   unsigned int nEchoReplies = 0;
   unsigned int nDestinationUnreachables = 0;
+  unsigned int nRedirects = 0;
   unsigned int nTimeExceededs = 0;
   unsigned int nNoResponses = 0;
   unsigned int nNoResponseTimeouts = 0;
@@ -3050,6 +3085,9 @@ hopping_reportStatsFull() {
 	case hopping_responseType_destinationUnreachable:
 	  nDestinationUnreachables++;
 	  break;
+	case hopping_responseType_redirect:
+	  nRedirects++;
+	  break;
 	case hopping_responseType_timeExceeded:
 	  nTimeExceededs++;
 	  break;
@@ -3102,6 +3140,7 @@ hopping_reportStatsFull() {
   printf("%12u    bytes used in the responses\n", responseBytes);
   printf("  %10u    echo replies received\n", nEchoReplies);
   printf("  %10u    destination unreachable errors received\n", nDestinationUnreachables);
+  printf("  %10u    redirect messages received\n", nRedirects);
   printf("  %10u    time exceeded errors received\n", nTimeExceededs);
   if (nResponses > 0) {
     printf("%12.4f    shortest response delay (ms)\n", ((float)shortestDelay / 1000.0));
