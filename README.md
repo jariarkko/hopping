@@ -4,7 +4,7 @@
 
 The "hopping" program is an efficient way to determine how many hops there are to a given destination. It is more efficient and convenient to use than traceroute.
 
-This program is a part of the Architecture Tester (archtester) collection of tools. See https://github.com/jariarkko/archtester.
+This program is a part of the Architecture Tester (archtester) collection of tools. See https://github.com/jariarkko/archtester. The tool has been written by Jari Arkko as a private project.
 
 The hopping software is under development, and subject to research on best algorithms for determining the number of hops, but the basic idea is that if you need to determine the number of hops, sequential processes such as those in traceroute may not be optimal. For instance, to find out how far facebook.com is from a current network, we can use hopping in different modes to compare their performance:
 
