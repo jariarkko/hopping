@@ -30,4 +30,6 @@ wc:
 	wc -l $(SOURCES)
 
 clean:
+	-rm hopping.o
+	-rm hopping
 	-rm *~
